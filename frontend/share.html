@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>商品分享</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <main class="max-w-7xl mx-auto p-4">
+    <p id="loading" class="text-slate-400">載入中...</p>
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 hidden"></div>
+    <p id="empty" class="text-slate-500 hidden">找不到此分享或已失效</p>
+  </main>
+  <script>
+    const id = location.pathname.split('/').pop();
+    const grid = document.getElementById('grid');
+    (async () => {
+      const r = await fetch('/api/share/' + encodeURIComponent(id));
+      const j = await r.json();
+      document.getElementById('loading').classList.add('hidden');
+      if (!j.ok || !j.items || !j.items.length) {
+        document.getElementById('empty').classList.remove('hidden');
+        return;
+      }
+      grid.classList.remove('hidden');
+      j.items.forEach(it => {
+        const d = document.createElement('div');
+        d.className = 'bg-slate-900 border border-slate-800 rounded-lg overflow-hidden';
+        d.innerHTML = '<div class="aspect-square bg-slate-800"><img class="w-full h-full object-cover" src="' + it.image_path + '" /></div><div class="p-2 text-xs text-slate-300">' + (it.description || '').replace(/</g,'&lt;') + '</div>';
+        grid.appendChild(d);
+      });
+    })();
+  </script>
+</body>
+</html>
