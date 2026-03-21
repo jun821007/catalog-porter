@@ -37,6 +37,10 @@
       <span id="shareOut" class="text-sm text-emerald-400 break-all"></span>
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+    <details class="mt-6 text-xs text-slate-500" id="debugPanel">
+      <summary>診斷資訊</summary>
+      <pre id="debugOut" class="mt-2 p-3 bg-slate-900 rounded overflow-auto max-h-32"></pre>
+    </details>
   </main>
   <div id="lightbox" role="dialog" aria-modal="true">
     <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">‹ 上一張</button>
@@ -83,14 +87,23 @@
       lightboxImg.src = lightboxImgs[i];
       lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i));
     }
+    function getApiBase() { return window.location.origin; }
     async function load() {
       const q = document.getElementById("q").value.trim();
-      const url = "/api/items?q=" + encodeURIComponent(q) + "&_=" + Date.now();
+      const base = getApiBase();
+      const url = base + "/api/items?q=" + encodeURIComponent(q) + "&_=" + Date.now();
       const fetchOpts = { cache: "no-store" };
       try {
         let r = await fetch(url, fetchOpts);
         let j = await r.json();
         items = j.items || [];
+        const debugEl = document.getElementById("debugOut");
+        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok;
+        if (!r.ok) {
+          grid.innerHTML = "<p class=\"col-span-full text-red-400\">API 錯誤 " + r.status + ": " + (j.error || r.statusText) + "</p>";
+          document.getElementById("countBadge").textContent = "";
+          return;
+        }
         if (items.length === 0 && (location.search.includes("?t=") || location.search.includes("?fresh="))) {
           await new Promise((x) => setTimeout(x, 400));
           r = await fetch(url, fetchOpts);
@@ -98,7 +111,8 @@
           items = j.items || [];
         }
       } catch (e) {
-        grid.innerHTML = "<p class=\"col-span-full text-amber-400\">無法載入，請確認伺服器已啟動且網址正確（如 localhost:3001）</p>";
+        grid.innerHTML = "<p class=\"col-span-full text-amber-400\">無法載入: " + esc(String(e.message)) + "。請確認網址為 " + base + " 且伺服器已啟動。</p>";
+        document.getElementById("countBadge").textContent = "";
         return;
       }
       grid.innerHTML = "";
@@ -115,7 +129,9 @@
         const shortDesc = trunc(it.description, 80);
         const imgs = (it.image_paths && it.image_paths.length) ? it.image_paths.length : 1;
         const badge = imgs > 1 ? "<span class=\\"absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded\\">" + imgs + "張</span>" : "";
-        card.innerHTML = "<div class=\\"aspect-square bg-slate-800 cursor-pointer img-preview relative\\" data-id=\\"" + it.id + "\\"><img class=\\"w-full h-full object-cover\\" src=\\"" + (it.image_path || (it.image_paths && it.image_paths[0])) + "\\" alt=\\"\\" />" + badge + "</div><div class=\"p-2\"><label class=\"flex items-start gap-2\"><input type=\"checkbox\" class=\"pick mt-1\" data-id=\"" + it.id + "\" /><span class=\"text-xs text-slate-300 line-clamp-2 flex-1\">" + esc(shortDesc) + "</span></label><button type=\"button\" class=\"btnDel mt-1 text-xs text-red-400 hover:text-red-300\" data-id=\"" + it.id + "\">刪除</button></div>";
+        const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
+        const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
+        card.innerHTML = "<div class=\\"aspect-square bg-slate-800 cursor-pointer img-preview relative\\" data-id=\\"" + it.id + "\\"><img class=\\"w-full h-full object-cover\\" src=\\"" + imgSrc + "\\" alt=\\"\\" />" + badge + "</div><div class=\"p-2\"><label class=\"flex items-start gap-2\"><input type=\"checkbox\" class=\"pick mt-1\" data-id=\"" + it.id + "\" /><span class=\"text-xs text-slate-300 line-clamp-2 flex-1\">" + esc(shortDesc) + "</span></label><button type=\"button\" class=\"btnDel mt-1 text-xs text-red-400 hover:text-red-300\" data-id=\"" + it.id + "\">刪除</button></div>";
         grid.appendChild(card);
       });
       grid.querySelectorAll(".pick").forEach(cb => cb.onchange = updateShareBtn);
