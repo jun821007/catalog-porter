@@ -6,6 +6,7 @@ const crypto = require('crypto');
 function getDataDir() {
   const dir = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  console.log('[CP:db] getDataDir:', dir);
   const uploads = path.join(dir, 'uploads');
   if (!fs.existsSync(uploads)) fs.mkdirSync(uploads, { recursive: true });
   return { dir, uploads, catalogPath: path.join(dir, 'catalog.json') };
@@ -36,6 +37,7 @@ function insertItem({ imagePath, imageUrlOriginal, description, image_paths }) {
     created_at: new Date().toISOString(),
   });
   saveCatalog(c);
+  console.log('[CP:db] insertItem id=' + id + ' path=' + imagePath);
   return id;
 }
 
@@ -43,6 +45,7 @@ function listItems(search) {
   let items = loadCatalog().items.slice().reverse();
   const k = (search || '').trim();
   if (k) items = items.filter((x) => matchesKeyword(x.description, x.image_url_original || '', k));
+  console.log('[CP:db] listItems returning ' + items.length + ' items from catalog');
   return items;
 }
 

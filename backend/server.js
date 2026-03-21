@@ -294,6 +294,11 @@ app.post('/import', async (req, res) => {
   try {
     const items = req.body && req.body.items;
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'items required' });
+    console.log('[CP:import] received ' + items.length + ' items');
+    if (items.length > 0) {
+      const img = items[0].imageUrl || (items[0].imageUrls && items[0].imageUrls[0]);
+      console.log('[CP:import] item[0] imageUrl=' + (img || '(none)'));
+    }
     const saved = [];
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);
@@ -311,7 +316,8 @@ app.post('/import', async (req, res) => {
       const id = insertItem({ imagePath, imageUrlOriginal: imageUrl, description });
       saved.push({ id, imagePath, description });
     }
-    console.log('Import done: saved ' + saved.length + ' items');
+    const { catalogPath: cp } = getDataDir();
+    console.log('[CP:import] saved ' + saved.length + ', catalogPath=' + cp);
     const out = { ok: true, saved };
     if (saved.length === 0) out.hint = 'no imageUrl in items';
     res.json(out);
@@ -323,8 +329,10 @@ app.post('/import', async (req, res) => {
 
 app.get('/api/items', (req, res) => {
   try {
+    const items = listItems(req.query.q || '');
+    console.log('[CP:api] GET /api/items returning ' + items.length + ' items');
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ ok: true, items: listItems(req.query.q || '') });
+    res.json({ ok: true, items });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }
@@ -369,11 +377,18 @@ app.get('/api/share/:id', (req, res) => {
   }
 });
 
-const { catalogPath } = getDataDir();
+const { dir: DATA_DIR, catalogPath } = getDataDir();
 app.get('/api/debug', (req, res) => {
   try {
     const items = listItems('');
-    res.json({ catalogPath, itemCount: items.length });
+    const firstTwo = items.slice(0, 2).map((it) => ({ id: it.id, image_path: it.image_path, description: (it.description || '').slice(0, 80) }));
+    res.json({
+      catalogPath,
+      DATA_DIR,
+      catalogExists: fs.existsSync(catalogPath),
+      itemCount: items.length,
+      firstTwo,
+    });
   } catch (e) {
     res.json({ error: String(e.message) });
   }
@@ -382,6 +397,7 @@ app.get('/api/debug', (req, res) => {
 function startServer(port) {
   const srv = app.listen(port, '0.0.0.0', () => {
     const absPath = path.resolve(catalogPath);
+    console.log('[CP:start] DATA_DIR=' + DATA_DIR + ' catalogPath=' + catalogPath);
     console.log('Catalog Porter http://localhost:' + port);
     console.log('catalog.json: ' + absPath);
     if (port !== (process.env.PORT || 3000)) {
