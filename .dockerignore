@@ -2,4 +2,8 @@ node_modules
 data
 .git
 .env
+.env.*
 *.log
+.github
+.vscode
+.cursor

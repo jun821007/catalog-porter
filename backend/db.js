@@ -1,9 +1,10 @@
-﻿const path = require('path');
+const path = require('path');
+const { matchesKeyword } = require('./keywordMatch');
 const fs = require('fs');
 const crypto = require('crypto');
 
 function getDataDir() {
-  const dir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+  const dir = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const uploads = path.join(dir, 'uploads');
   if (!fs.existsSync(uploads)) fs.mkdirSync(uploads, { recursive: true });
@@ -22,12 +23,14 @@ function saveCatalog(c) {
   fs.writeFileSync(getDataDir().catalogPath, JSON.stringify(c, null, 0), 'utf8');
 }
 
-function insertItem({ imagePath, imageUrlOriginal, description }) {
+function insertItem({ imagePath, imageUrlOriginal, description, image_paths }) {
+  // Accepts imagePath: /uploads/xxx or /proxy?url=... (proxied when CDN blocks direct fetch)
   const c = loadCatalog();
   const id = c.nextId++;
   c.items.push({
     id,
     image_path: imagePath,
+    image_paths: Array.isArray(image_paths) ? image_paths : null,
     image_url_original: imageUrlOriginal || null,
     description: description || '',
     created_at: new Date().toISOString(),
@@ -39,7 +42,7 @@ function insertItem({ imagePath, imageUrlOriginal, description }) {
 function listItems(search) {
   let items = loadCatalog().items.slice().reverse();
   const k = (search || '').trim();
-  if (k) items = items.filter((x) => (x.description || '').includes(k));
+  if (k) items = items.filter((x) => matchesKeyword(x.description, x.image_url_original || '', k));
   return items;
 }
 
@@ -59,4 +62,21 @@ function getShareItems(shareId) {
   return ids.map((i) => map.get(i)).filter(Boolean);
 }
 
-module.exports = { getDataDir, insertItem, listItems, createShare, getShareItems };
+function getItem(id) {
+  const c = loadCatalog();
+  return c.items.find((x) => x.id === Number(id)) || null;
+}
+
+function deleteItem(id) {
+  const c = loadCatalog();
+  const idx = c.items.findIndex((x) => x.id === Number(id));
+  if (idx === -1) return null;
+  const removed = c.items.splice(idx, 1)[0];
+  Object.keys(c.shares).forEach((sid) => {
+    c.shares[sid] = c.shares[sid].filter((i) => i !== Number(id));
+  });
+  saveCatalog(c);
+  return removed;
+}
+
+module.exports = { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem };

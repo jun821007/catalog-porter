@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
@@ -23,8 +23,9 @@
       <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium">開始抓取</button>
       <span id="status" class="ml-4 text-slate-400"></span>
     </div>
-    <div class="flex gap-3 mb-4">
+    <div class="flex gap-3 mb-4 flex-wrap items-center">
       <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>批量入庫（已選 <span id="selCount">0</span>）</button>
+      <a id="linkToInventory" href="/inventory" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
       <button id="btnAll" type="button" class="text-slate-400 text-sm underline">全選</button>
       <button id="btnNone" type="button" class="text-slate-400 text-sm underline">全不選</button>
     </div>
@@ -33,6 +34,7 @@
   <script>
     const grid = document.getElementById('grid');
     const statusEl = document.getElementById('status');
+    const STORAGE_KEY = 'catalog_porter_fetch';
     let items = [];
     function proxy(u) { return '/proxy?url=' + encodeURIComponent(u); }
     function updateSel() {
@@ -40,6 +42,51 @@
       document.getElementById('selCount').textContent = n;
       document.getElementById('btnImport').disabled = n === 0;
     }
+    function saveToStorage() {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+          items,
+          checked: [...document.querySelectorAll('.pick:checked')].map(c => +c.dataset.i),
+          url: document.getElementById('url').value,
+          keyword: document.getElementById('keyword').value,
+          status: statusEl.textContent
+        }));
+      } catch (_) {}
+    }
+    function restoreFromStorage() {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (!data.items || !data.items.length) return;
+        items = data.items;
+        if (data.url) document.getElementById('url').value = data.url;
+        if (data.keyword) document.getElementById('keyword').value = data.keyword || '';
+        statusEl.textContent = data.status || '';
+        renderGrid();
+        if (Array.isArray(data.checked) && data.checked.length) {
+          data.checked.forEach(i => {
+            const cb = grid.querySelector('.pick[data-i="' + i + '"]');
+            if (cb) cb.checked = true;
+          });
+          updateSel();
+        }
+      } catch (_) {}
+    }
+    function renderGrid() {
+      grid.innerHTML = '';
+      items.forEach((it, i) => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-900 border border-slate-800 rounded-lg overflow-hidden';
+        card.innerHTML = '<label class="block cursor-pointer"><div class="aspect-square bg-slate-800 relative"><img class="w-full h-full object-cover" loading="lazy" src="' + proxy(it.imageUrl) + '" /></div><div class="p-2"><input type="checkbox" class="pick mr-2 align-middle" data-i="' + i + '" /><span class="text-xs text-slate-300 line-clamp-4">' + (it.description || '').slice(0,80).replace(/</g,'&lt;') + ((it.description||'').length > 80 ? '...' : '') + '</span></div></label>';
+        grid.appendChild(card);
+      });
+      grid.querySelectorAll('.pick').forEach(cb => cb.onchange = () => { updateSel(); saveToStorage(); });
+      updateSel();
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveToStorage(); });
+    window.addEventListener('beforeunload', saveToStorage);
+    restoreFromStorage();
     document.getElementById('btnFetch').onclick = async () => {
       const url = document.getElementById('url').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
@@ -51,21 +98,18 @@
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || '失敗');
         items = j.items || [];
-        statusEl.textContent = '共 ' + items.length + ' 筆（已排除缺貨/售罄與關鍵字篩選）';
-        items.forEach((it, i) => {
-          const card = document.createElement('div');
-          card.className = 'bg-slate-900 border border-slate-800 rounded-lg overflow-hidden';
-          card.innerHTML = '<label class="block cursor-pointer"><div class="aspect-square bg-slate-800 relative"><img class="w-full h-full object-cover" loading="lazy" src="' + proxy(it.imageUrl) + '" /></div><div class="p-2"><input type="checkbox" class="pick mr-2 align-middle" data-i="' + i + '" /><span class="text-xs text-slate-300 line-clamp-4">' + (it.description || '').replace(/</g,'&lt;') + '</span></div></label>';
-          grid.appendChild(card);
-        });
-        grid.querySelectorAll('.pick').forEach(cb => cb.onchange = updateSel);
+        const ts = typeof j.totalScraped === 'number' ? j.totalScraped : items.length;
+        statusEl.textContent = (j.keyword ? '先抓到 ' + ts + ' 筆，關鍵字後 ' + items.length + ' 筆' : '共 ' + items.length + ' 筆') + '（已排除缺貨/售罄）';
+        if (j.hint) statusEl.textContent += ' — ' + j.hint;
+        renderGrid();
+        saveToStorage();
       } catch (e) {
         statusEl.textContent = '';
         alert(e.message);
       }
     };
-    document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); };
-    document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); };
+    document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
+    document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); saveToStorage(); };
     document.getElementById('btnImport').onclick = async () => {
       const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
       if (!sel.length) return;
@@ -74,8 +118,16 @@
         const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel }) });
         const j = await r.json();
         if (!j.ok) throw new Error(j.error);
-        alert('已入庫 ' + j.saved.length + ' 筆');
-        statusEl.textContent = '';
+        const n = (j.saved || []).length;
+        if (n === 0) {
+          alert('入庫 0 筆，請確認已勾選商品');
+          statusEl.textContent = '';
+          saveToStorage();
+        } else {
+          statusEl.textContent = '已入庫 ' + n + ' 筆';
+          document.getElementById('linkToInventory').classList.remove('hidden');
+          saveToStorage();
+        }
       } catch (e) { alert(e.message); statusEl.textContent = ''; }
     };
   </script>
