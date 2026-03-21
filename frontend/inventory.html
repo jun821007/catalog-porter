@@ -88,13 +88,21 @@
       lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i));
     }
     function getApiBase() { return window.location.origin; }
+    function debugLog(msg) {
+      const d = document.getElementById("debugOut");
+      if (d) d.textContent = (d.textContent || "") + msg + "\n";
+    }
     async function load() {
+      const d = document.getElementById("debugOut");
+      if (d) d.textContent = "";
       const q = document.getElementById("q").value.trim();
       const base = getApiBase();
-      const url = base + "/api/items?q=" + encodeURIComponent(q) + "&_=" + Date.now();
+      const url = "/api/items?q=" + encodeURIComponent(q) + "&_=" + Date.now();
+      debugLog("fetch: " + url);
       const fetchOpts = { cache: "no-store" };
       try {
         let r = await fetch(url, fetchOpts);
+        debugLog("status: " + r.status);
         let j = await r.json();
         items = j.items || [];
         const debugEl = document.getElementById("debugOut");
@@ -111,6 +119,7 @@
           items = j.items || [];
         }
       } catch (e) {
+        debugLog("ERROR: " + e.message);
         grid.innerHTML = "<p class=\"col-span-full text-amber-400\">無法載入: " + esc(String(e.message)) + "。請確認網址為 " + base + " 且伺服器已啟動。</p>";
         document.getElementById("countBadge").textContent = "";
         return;
