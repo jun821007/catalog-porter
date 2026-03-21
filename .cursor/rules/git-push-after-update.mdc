@@ -1,0 +1,16 @@
+﻿---
+description: After code updates, commit and push to GitHub (user has auth configured)
+alwaysApply: true
+---
+
+# 更新後推送到 GitHub
+
+當使用者要求「更新」「改好」「推送」「上傳」或類似意思時，在完成程式修改後：
+
+1. `git add` 相關檔案（不要加入測試用 JSON、patch 腳本、`_*.json`、`imp.json` 等暫存檔）
+2. `git commit --trailer "Made-with: Cursor" -m "簡短說明"`
+3. `git push origin main`（或目前分支）
+
+遠端已設為 `https://github.com/jun821007/catalog-porter.git`，使用者已授權 Git 憑證，應直接執行 push，無需再請使用者手動 push。
+
+若 push 失敗（網路／權限），再說明錯誤並請使用者檢查。
