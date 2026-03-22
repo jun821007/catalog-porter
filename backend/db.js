@@ -3,10 +3,11 @@ const { matchesKeyword } = require('./keywordMatch');
 const fs = require('fs');
 const crypto = require('crypto');
 
+let _dataDirLogged = false;
 function getDataDir() {
   const dir = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  console.log('[CP:db] getDataDir:', dir);
+  if (!_dataDirLogged) { _dataDirLogged = true; console.log('[CP:db] getDataDir:', dir); }
   const uploads = path.join(dir, 'uploads');
   if (!fs.existsSync(uploads)) fs.mkdirSync(uploads, { recursive: true });
   return { dir, uploads, catalogPath: path.join(dir, 'catalog.json') };

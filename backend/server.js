@@ -304,16 +304,21 @@ app.post('/import', async (req, res) => {
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);
     const base = proto + '://' + host;
     for (const it of items) {
-      let imageUrl = it.imageUrl || (it.imageUrls && it.imageUrls[0]);
-      if (imageUrl && imageUrl.includes('/proxy')) {
-        const extracted = extractUrlFromProxy(imageUrl);
-        if (extracted) imageUrl = extracted;
-      }
-      if (!imageUrl) continue;
-      if (imageUrl.startsWith('/')) imageUrl = base + imageUrl;
+      const rawUrls = it.imageUrls && it.imageUrls.length ? it.imageUrls : [it.imageUrl || (it.imageUrls && it.imageUrls[0])];
+      const imageUrls = rawUrls.filter(Boolean).map((u) => {
+        let url = u;
+        if (url.includes('/proxy')) {
+          const ext = extractUrlFromProxy(url);
+          if (ext) url = ext;
+        }
+        if (url.startsWith('/')) url = base + url;
+        return url;
+      });
+      if (!imageUrls.length) continue;
       const description = (it.description || '').slice(0, 4000);
-      const imagePath = '/proxy?url=' + encodeURIComponent(imageUrl);
-      const id = insertItem({ imagePath, imageUrlOriginal: imageUrl, description });
+      const imagePath = '/proxy?url=' + encodeURIComponent(imageUrls[0]);
+      const image_paths = imageUrls.map((u) => '/proxy?url=' + encodeURIComponent(u));
+      const id = insertItem({ imagePath, imageUrlOriginal: imageUrls[0], description, image_paths });
       saved.push({ id, imagePath, description });
     }
     const { catalogPath: cp } = getDataDir();
