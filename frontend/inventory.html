@@ -10,7 +10,7 @@
     #lightbox.show { display: flex; }
     #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
     #lightbox .desc { max-width: 90vw; margin-top: 0.5rem; text-align: left; font-size: 0.875rem; color: #cbd5e1; }
-    #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.5rem 1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; }
+    #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.5rem 1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; }
     #lightbox .nav-btn:hover { background: rgba(255,255,255,.35); }
     #lightbox .nav-prev { left: 1rem; }
     #lightbox .nav-next { right: 1rem; }
@@ -172,6 +172,12 @@
     }
     lightboxPrev.onclick = () => lightboxShow(lightboxIdx - 1);
     lightboxNext.onclick = () => lightboxShow(lightboxIdx + 1);
+    document.addEventListener("keydown", (e) => {
+      if (!lightbox.classList.contains("show")) return;
+      if (e.key === "ArrowLeft") { lightboxShow(lightboxIdx - 1); e.preventDefault(); }
+      else if (e.key === "ArrowRight") { lightboxShow(lightboxIdx + 1); e.preventDefault(); }
+      else if (e.key === "Escape") { lightbox.classList.remove("show"); e.preventDefault(); }
+    });
     document.getElementById("btnSearch").onclick = load;
     document.getElementById("q").onkeydown = e => { if (e.key === "Enter") load(); };
     document.getElementById("btnShare").onclick = async () => {
@@ -189,6 +195,7 @@
       if (!ids.length) return;
       if (!confirm("確定要刪除 " + ids.length + " 項？")) return;
       for (const id of ids) { await fetch("/api/items/" + id, { method: "DELETE" }); }
+      alert("\u5df2\u522a\u9664");
       load();
     };
     document.getElementById("lightboxClose").onclick = () => lightbox.classList.remove("show");
