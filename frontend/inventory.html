@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>我的庫存 — Catalog Porter</title>
+  <title>?��?庫�? ??Catalog Porter</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
@@ -21,35 +21,38 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
-    <h1 class="text-xl font-semibold text-amber-400">我的庫存<span id="countBadge" class="text-slate-400 font-normal ml-2 text-base"></span></h1>
+    <h1 class="text-xl font-semibold text-amber-400">?��?庫�?<span id="countBadge" class="text-slate-400 font-normal ml-2 text-base"></span></h1>
     <nav class="flex gap-3 text-sm">
-      <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
-      <a href="/inventory" class="text-amber-300 font-medium">我的庫存</a>
+      <a href="/" class="text-slate-400 hover:text-white">?��??�庫</a>
+      <a href="/inventory" class="text-amber-300 font-medium">?��?庫�?</a>
     </nav>
   </header>
   <main class="max-w-7xl mx-auto p-4">
     <div class="flex flex-wrap gap-3 mb-6">
-      <input id="q" type="search" class="flex-1 min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" placeholder="搜尋描述..." />
-      <button id="btnSearch" class="bg-slate-700 px-4 py-2 rounded-lg">搜尋</button>
+      <input id="q" type="search" class="flex-1 min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" placeholder="?��??�述..." />
+      <button id="btnSearch" class="bg-slate-700 px-4 py-2 rounded-lg">?��?</button>
     </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
-      <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>生成分享連結</button>
+      <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>?��??�享???</button>
+      <button id="btnBatchDel" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>?��??�除</button>
+      <button id="btnSelectAll" class="text-slate-400 hover:text-white text-sm underline">?�選</button>
+      <button id="btnSelectNone" class="text-slate-400 hover:text-white text-sm underline">?��??�選</button>
       <span id="shareOut" class="text-sm text-emerald-400 break-all"></span>
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
     <details class="mt-6 text-xs text-slate-500" id="debugPanel">
-      <summary>診斷資訊</summary>
+      <summary>診斷資�?</summary>
       <pre id="debugOut" class="mt-2 p-3 bg-slate-900 rounded overflow-auto max-h-32"></pre>
     </details>
   </main>
   <div id="lightbox" role="dialog" aria-modal="true">
-    <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">‹ 上一張</button>
-    <button type="button" class="nav-btn nav-next" id="lightboxNext" style="display:none">下一張 ›</button>
+    <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">??上�?�?/button>
+    <button type="button" class="nav-btn nav-next" id="lightboxNext" style="display:none">下�?�???/button>
     <div class="flex flex-col items-center">
-      <img id="lightboxImg" alt="預覽" />
+      <img id="lightboxImg" alt="?�覽" />
       <div id="lightboxNav" class="nav-dots"></div>
       <div id="lightboxDesc" class="desc"></div>
-      <button type="button" id="lightboxClose" class="mt-3 px-4 py-2 bg-slate-600 rounded-lg">關閉</button>
+      <button type="button" id="lightboxClose" class="mt-3 px-4 py-2 bg-slate-600 rounded-lg">?��?</button>
     </div>
   </div>
   <script>
@@ -63,12 +66,12 @@
     let items = [];
     let lightboxImgs = [];
     let lightboxIdx = 0;
-    function esc(s) { return (s || "").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+    function esc(s) { return (s || "\u522a\u9664\u5931\u6557").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
     function trunc(s, n) { s = s || ""; return s.length <= n ? s : s.slice(0, n) + "..."; }
     function openLightbox(it) {
       lightboxImgs = (it.image_paths && it.image_paths.length) ? it.image_paths : [it.image_path];
       lightboxIdx = 0;
-      lightboxImg.src = lightboxImgs[0];
+      lightboxImg.src = toFullUrl(lightboxImgs[0]);
       lightboxDesc.textContent = it.description || "";
       lightboxPrev.style.display = lightboxImgs.length > 1 ? "block" : "none";
       lightboxNext.style.display = lightboxImgs.length > 1 ? "block" : "none";
@@ -76,7 +79,7 @@
       for (let i = 0; i < lightboxImgs.length; i++) {
         const dot = document.createElement("div");
         dot.className = "nav-dot" + (i === 0 ? " active" : "");
-        dot.onclick = () => { lightboxIdx = i; lightboxImg.src = lightboxImgs[i]; lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i)); };
+        dot.onclick = () => { lightboxIdx = i; lightboxImg.src = toFullUrl(lightboxImgs[i]); lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i)); };
         lightboxNav.appendChild(dot);
       }
       lightbox.classList.add("show");
@@ -84,13 +87,13 @@
     function lightboxShow(i) {
       if (i < 0 || i >= lightboxImgs.length) return;
       lightboxIdx = i;
-      lightboxImg.src = lightboxImgs[i];
+      lightboxImg.src = toFullUrl(lightboxImgs[i]);
       lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i));
     }
-    function getApiBase() { return window.location.origin; }
+    function toFullUrl(path) { if (!path) return ""; if (path.startsWith("http")) return path; return getApiBase() + (path.startsWith("/") ? path : "/" + path); } function getApiBase() { return window.location.origin; }
     function debugLog(msg) {
       const d = document.getElementById("debugOut");
-      if (d) d.textContent = (d.textContent || "") + msg + "\n";
+      if (d) d.textContent = (d.textContent || "\u522a\u9664\u5931\u6557") + msg + "\n";
     }
     async function load() {
       const d = document.getElementById("debugOut");
@@ -108,7 +111,7 @@
         const debugEl = document.getElementById("debugOut");
         if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok;
         if (!r.ok) {
-          grid.innerHTML = "<p class=\"col-span-full text-red-400\">API 錯誤 " + r.status + ": " + (j.error || r.statusText) + "</p>";
+          grid.innerHTML = "<p class=\"col-span-full text-red-400\">API ?�誤 " + r.status + ": " + (j.error || r.statusText) + "</p>";
           document.getElementById("countBadge").textContent = "";
           return;
         }
@@ -120,7 +123,7 @@
         }
       } catch (e) {
         debugLog("ERROR: " + e.message);
-        grid.innerHTML = "<p class=\"col-span-full text-amber-400\">無法載入: " + esc(String(e.message)) + "。請確認網址為 " + base + " 且伺服器已啟動。</p>";
+        grid.innerHTML = "<p class=\"col-span-full text-amber-400\">?��?載入: " + esc(String(e.message)) + "?��?確�?網�???" + base + " 且伺?�器已�??��?/p>";
         document.getElementById("countBadge").textContent = "";
         return;
       }
@@ -128,10 +131,10 @@
       if (items.length === 0) {
         const empty = document.createElement("div");
         empty.className = "col-span-full text-center py-12 text-slate-400";
-        empty.innerHTML = "目前無庫存。請先到<a href=\"/\" class=\"text-amber-400 hover:text-amber-300 underline\">「抓取入庫」</a>頁面抓取商品並批量入庫。<br>若剛完成入庫，請按 F5 重新整理。";
+        empty.innerHTML = "?��??�庫存。�??�到<a href=\"/\" class=\"text-amber-400 hover:text-amber-300 underline\">?��??�入庫�?/a>?�面?��??��?並批?�入庫�?br>?��?完�??�庫，�???F5 ?�新?��???;
         grid.appendChild(empty);
       }
-      document.getElementById("countBadge").textContent = items.length > 0 ? "共 " + items.length + " 筆" : "";
+      document.getElementById("countBadge").textContent = items.length > 0 ? "??" + items.length + " �? : "";
       items.forEach(it => {
         const card = document.createElement("div");
         card.className = "bg-slate-900 border border-slate-800 rounded-lg overflow-hidden";
@@ -153,11 +156,11 @@
       grid.querySelectorAll(".btnDel").forEach(btn => {
         btn.onclick = async (e) => {
           e.stopPropagation();
-          if (!confirm("確定要刪除此筆入庫？")) return;
+          if (!confirm("\u78ba\u5b9a\u8981\u522a\u9664\u6b64\u7b46\u5165\u5eab\uff1f")) return;
           const id = btn.dataset.id;
           const r = await fetch("/api/items/" + id, { method: "DELETE" });
           const j = await r.json();
-          if (j.ok) load(); else alert(j.error || "刪除失敗");
+          if (j.ok) load(); else alert(j.error || "\u522a\u9664\u5931\u6557");
         };
       });
       updateShareBtn();
@@ -165,6 +168,7 @@
     function updateShareBtn() {
       const n = [...document.querySelectorAll(".pick:checked")].length;
       document.getElementById("btnShare").disabled = n === 0;
+      document.getElementById("btnBatchDel").disabled = n === 0;
     }
     lightboxPrev.onclick = () => lightboxShow(lightboxIdx - 1);
     lightboxNext.onclick = () => lightboxShow(lightboxIdx + 1);
@@ -176,9 +180,9 @@
       const j = await r.json();
       if (!j.ok) { alert(j.error); return; }
       document.getElementById("shareOut").textContent = j.url;
-      try { await navigator.clipboard.writeText(j.url); alert("已複製連結到剪貼簿"); } catch (_) {}
+      try { await navigator.clipboard.writeText(j.url); alert("\u5df2\u8907\u88fd\u9023\u7d50\u5230\u526a\u8cbc\u7c64"); } catch (_) {}
     };
-    document.getElementById("lightboxClose").onclick = () => lightbox.classList.remove("show");
+    document.getElementById("btnSelectAll").onclick = () => { grid.querySelectorAll(".pick").forEach(c => c.checked = true); updateShareBtn(); }; document.getElementById("btnSelectNone").onclick = () => { grid.querySelectorAll(".pick").forEach(c => c.checked = false); updateShareBtn(); }; document.getElementById("btnBatchDel").onclick = async () => { const ids = [...document.querySelectorAll(".pick:checked")].map(c => +c.dataset.id); if (!ids.length) return; if (!confirm("\u78ba\u5b9a\u8981\u522a\u9664\u5df2\u9078\u7684 " + ids.length + " \u7b46\uff1f")) return; for (const id of ids) { await fetch("/api/items/" + id, { method: "DELETE" }); } load(); }; document.getElementById("lightboxClose").onclick = () => lightbox.classList.remove("show");
     lightbox.onclick = (e) => { if (e.target === lightbox) lightbox.classList.remove("show"); };
     load();
   </script>
