@@ -137,10 +137,10 @@
         card.className = "bg-slate-900 border border-slate-800 rounded-lg overflow-hidden";
         const shortDesc = trunc(it.description, 80);
         const imgs = (it.image_paths && it.image_paths.length) ? it.image_paths.length : 1;
-        const badge = imgs > 1 ? "<span class=\\"absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded\\">" + imgs + "張</span>" : "";
+        const badge = imgs > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + imgs + '\u5f35</span>' : "";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
-        card.innerHTML = "<div class=\\"aspect-square bg-slate-800 cursor-pointer img-preview relative\\" data-id=\\"" + it.id + "\\"><img class=\\"w-full h-full object-cover\\" src=\\"" + imgSrc + "\\" alt=\\"\\" />" + badge + "</div><div class=\"p-2\"><label class=\"flex items-start gap-2\"><input type=\"checkbox\" class=\"pick mt-1\" data-id=\"" + it.id + "\" /><span class=\"text-xs text-slate-300 line-clamp-2 flex-1\">" + esc(shortDesc) + "</span></label><button type=\"button\" class=\"btnDel mt-1 text-xs text-red-400 hover:text-red-300\" data-id=\"" + it.id + "\">刪除</button></div>";
+        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><label class="flex items-start gap-2"><input type="checkbox" class="pick mt-1" data-id="' + it.id + '" /><span class="text-xs text-slate-300 line-clamp-2 flex-1">' + esc(shortDesc) + '</span></label><button type="button" class="btnDel mt-1 text-xs text-red-400 hover:text-red-300" data-id="' + it.id + '">\u522a\u9664</button></div>';
         grid.appendChild(card);
       });
       grid.querySelectorAll(".pick").forEach(cb => cb.onchange = updateShareBtn);
