@@ -66,20 +66,23 @@
     let items = [];
     let lightboxImgs = [];
     let lightboxIdx = 0;
+    let lightboxBaseDesc = "";
     function esc(s) { return (s || "").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
     function trunc(s, n) { s = s || ""; return s.length <= n ? s : s.slice(0, n) + "..."; }
     function openLightbox(it) {
-      lightboxImgs = (it.image_paths && it.image_paths.length) ? it.image_paths : [it.image_path];
+      const paths = it.image_paths || it.imagePaths;
+      lightboxImgs = (Array.isArray(paths) && paths.length) ? paths : (it.image_path ? [it.image_path] : []);
       lightboxIdx = 0;
-      lightboxImg.src = toFullUrl(lightboxImgs[0]);
-      lightboxDesc.textContent = it.description || "";
+      lightboxBaseDesc = it.description || "";
+      lightboxImg.src = lightboxImgs.length ? toFullUrl(lightboxImgs[0]) : "";
+      lightboxDesc.textContent = (lightboxImgs.length > 1 ? "(" + (lightboxIdx + 1) + "/" + lightboxImgs.length + ") " : "") + lightboxBaseDesc;
       lightboxPrev.style.display = lightboxImgs.length > 1 ? "block" : "none";
       lightboxNext.style.display = lightboxImgs.length > 1 ? "block" : "none";
       lightboxNav.innerHTML = "";
       for (let i = 0; i < lightboxImgs.length; i++) {
         const dot = document.createElement("div");
         dot.className = "nav-dot" + (i === 0 ? " active" : "");
-        dot.onclick = () => { lightboxIdx = i; lightboxImg.src = toFullUrl(lightboxImgs[i]); lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i)); };
+        dot.onclick = () => lightboxShow(i);
         lightboxNav.appendChild(dot);
       }
       lightbox.classList.add("show");
@@ -89,6 +92,7 @@
       lightboxIdx = i;
       lightboxImg.src = toFullUrl(lightboxImgs[i]);
       lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i));
+      lightboxDesc.textContent = (lightboxImgs.length > 1 ? "(" + (lightboxIdx + 1) + "/" + lightboxImgs.length + ") " : "") + lightboxBaseDesc;
     }
     function toFullUrl(path) { if (!path) return ""; if (path.startsWith("http")) return path; return getApiBase() + (path.startsWith("/") ? path : "/" + path); }
     function getApiBase() { return window.location.origin; }

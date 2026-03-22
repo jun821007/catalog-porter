@@ -20,6 +20,10 @@
       <input id="url" type="url" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
       <label class="block text-sm text-slate-400 mb-1">搜尋關鍵字（可留空）</label>
       <input id="keyword" type="text" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="篩選描述含此字" />
+      <label class="flex items-center gap-2 mb-4">
+        <input type="checkbox" id="deepScrape" checked />
+        <span class="text-sm text-slate-300">深入相冊取得全部圖片（較慢）</span>
+      </label>
       <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium">開始抓取</button>
       <span id="status" class="ml-4 text-slate-400"></span>
     </div>
@@ -92,10 +96,11 @@
       const url = document.getElementById('url').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
       if (!url) { alert('請輸入網址'); return; }
-      statusEl.textContent = '抓取中（可能需 1–2 分鐘）...';
+      statusEl.textContent = document.getElementById('deepScrape').checked ? '抓取中（深入相冊較慢，約 2–5 分鐘）...' : '抓取中（可能需 1–2 分鐘）...';
       grid.innerHTML = '';
       try {
-        const r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword }) });
+        const deepScrape = document.getElementById('deepScrape').checked;
+        const r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }) });
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || '失敗');
         items = j.items || [];

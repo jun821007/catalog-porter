@@ -61,7 +61,7 @@ function filterItems(raw, keyword) {
   });
 }
 
-async function scrapePage(url, keyword) {
+async function scrapePage(url, keyword, opts = {}) {
   let searchTriggered = false;
   const exe = process.env.PUPPETEER_EXECUTABLE_PATH;
   const browser = await puppeteer.launch({
@@ -152,7 +152,7 @@ async function scrapePage(url, keyword) {
         return urls;
       }
       const out = []; const seen = new Set();
-      const containers = document.querySelectorAll('[class*="goods"],[class*="product"],[class*="item"],[class*="cell"],[class*="card"],[class*="product"],[class*="goods-item"],.swiper-slide,.van-swipe-item,.van-grid-item');
+      const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');
       if (containers.length > 0) {
         containers.forEach((c) => {
           const urls = getImgs(c);
@@ -181,6 +181,39 @@ async function scrapePage(url, keyword) {
       }
       return out;
     });
+    if (opts.deepScrape && raw.length > 0 && raw.length <= 80) {
+      const sel = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
+      for (let i = 0; i < raw.length; i++) {
+        try {
+          const clicked = await page.evaluate((idx, selector) => {
+            const cs = document.querySelectorAll(selector);
+            if (cs[idx]) { cs[idx].click(); return true; }
+            return false;
+          }, i, sel);
+          if (!clicked) continue;
+          await new Promise(r => setTimeout(r, 2500));
+          const detailImgs = await page.evaluate(() => {
+            const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
+            const out = [];
+            const imgs = document.querySelectorAll('.van-swipe__track img, .swiper-wrapper img, .swiper-slide img, [class*="swiper"] img, [class*="gallery"] img, [class*="preview"] img, .van-image__img, [class*="detail"] img, [class*="modal"] img, [class*="popup"] img');
+            imgs.forEach(img => {
+              const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
+              if (src && !src.startsWith('data:') && !skipRe.test(src)) {
+                const k = src.split('?')[0];
+                if (!out.some(u => u.split('?')[0] === k)) out.push(src);
+              }
+            });
+            return out;
+          });
+          if (detailImgs.length >= 1) {
+            raw[i].imageUrls = detailImgs;
+            raw[i].imageUrl = detailImgs[0];
+          }
+          await page.keyboard.press('Escape');
+          await new Promise(r => setTimeout(r, 600));
+        } catch (_) {}
+      }
+    }
     return { raw, searchTriggered };
   } finally {
     await browser.close();
@@ -205,7 +238,8 @@ app.post('/fetch', async (req, res) => {
     const url = (req.body && req.body.url) || req.query.url;
     const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'missing url' });
-    const { raw, searchTriggered } = await scrapePage(url.trim(), keyword);
+    const deepScrape = !!(req.body && req.body.deepScrape);
+    const { raw, searchTriggered } = await scrapePage(url.trim(), keyword, { deepScrape });
     const kw = (keyword || '').trim();
     const inStock = filterItems(raw, '');
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
@@ -318,6 +352,7 @@ app.post('/import', async (req, res) => {
       const description = (it.description || '').slice(0, 4000);
       const imagePath = '/proxy?url=' + encodeURIComponent(imageUrls[0]);
       const image_paths = imageUrls.map((u) => '/proxy?url=' + encodeURIComponent(u));
+      console.log('[CP:import] item image_paths count=', image_paths.length);
       const id = insertItem({ imagePath, imageUrlOriginal: imageUrls[0], description, image_paths });
       saved.push({ id, imagePath, description });
     }
@@ -346,7 +381,7 @@ app.get('/api/items', (req, res) => {
 app.delete('/api/items/:id', (req, res) => {
   try {
     const item = getItem(req.params.id);
-    if (!item) return res.status(404).json({ ok: false, error: 'not found' });
+    if (!item) return res.json({ ok: true, deleted: false });
     const removed = deleteItem(req.params.id);
     if (removed && removed.image_path && !removed.image_path.startsWith('/proxy')) {
       const f = path.join(uploads, path.basename(removed.image_path));
