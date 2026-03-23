@@ -6,6 +6,17 @@
   <title>我的庫存 | Catalog Porter</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
+    /* 庫存頁面對比度 */
+    #q { color: #fff !important; background-color: #1e293b !important; }
+    #q::placeholder { color: #94a3b8; }
+    #btnSearch { color: #f1f5f9 !important; }
+    #btnShare, #btnBatchDel { color: #fff !important; }
+    #btnSelectAll, #btnSelectNone { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #475569; padding: 0.25rem 0.5rem; }
+    #btnSelectAll:hover, #btnSelectNone:hover { background: #334155 !important; color: #fff !important; }
+    #lightboxClose { color: #fff !important; }
+    #countBadge { color: #cbd5e1 !important; }
+    .btnDel { color: #fca5a5 !important; }
+    .btnDel:hover { color: #fff !important; }
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
     #lightbox.show { display: flex; }
     #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
@@ -17,6 +28,7 @@
     #lightbox .nav-dots { display: flex; gap: 0.25rem; margin-top: 0.5rem; justify-content: center; }
     #lightbox .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.4); cursor: pointer; }
     #lightbox .nav-dot.active { background: #fff; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
@@ -29,7 +41,8 @@
   </header>
   <main class="max-w-7xl mx-auto p-4">
     <div class="flex flex-wrap gap-3 mb-6">
-      <input id="q" type="search" class="flex-1 min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" placeholder="搜尋描述..." />
+      <label for="q" class="sr-only">搜尋描述</label>
+      <input id="q" type="search" class="flex-1 min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" placeholder="搜尋描述..." aria-label="搜尋描述" />
       <button id="btnSearch" class="bg-slate-700 px-4 py-2 rounded-lg">搜尋</button>
     </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">

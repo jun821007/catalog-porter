@@ -172,6 +172,17 @@ async function scrapePage(url, keyword, opts = {}) {
         if (a2) return resolve(a2.getAttribute('href'));
         const a3 = container.querySelector('a[href*="goods"]');
         if (a3) return resolve(a3.getAttribute('href'));
+        const a4 = container.querySelector('a[href*="/p/"]');
+        if (a4) return resolve(a4.getAttribute('href'));
+        const a5 = container.querySelector('a[href*="detail"]');
+        if (a5) return resolve(a5.getAttribute('href'));
+        const a6 = container.querySelector('a[href*="/item/"]');
+        if (a6) return resolve(a6.getAttribute('href'));
+        const anyA = container.querySelector('a[href^="/"], a[href^="http"]');
+        if (anyA) {
+          const h = anyA.getAttribute('href');
+          if (h && !h.match(/#$|javascript:|void\s*\(/)) return resolve(h);
+        }
         return null;
       }
       const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');

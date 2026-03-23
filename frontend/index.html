@@ -26,9 +26,9 @@
   </header>
   <main class="max-w-7xl mx-auto p-4">
     <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 mb-6">
-      <label class="block text-sm text-slate-400 mb-1">微商相冊網址 (wecatalog 等)</label>
+      <label for="url" class="block text-sm text-slate-400 mb-1">微商相冊網址 (wecatalog 等)</label>
       <input id="url" type="url" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
-      <label class="block text-sm text-slate-400 mb-1">搜尋關鍵字（可留空）</label>
+      <label for="keyword" class="block text-sm text-slate-400 mb-1">搜尋關鍵字（可留空）</label>
       <input id="keyword" type="text" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="篩選描述含此字" />
       <label class="flex items-center gap-2 mb-4">
         <input type="checkbox" id="deepScrape" checked />
@@ -117,7 +117,10 @@
       grid.innerHTML = '';
       try {
         const deepScrape = document.getElementById('deepScrape').checked;
-        const r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }) });
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8*60*1000);
+        let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }
+        
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || '失敗');
         items = j.items || [];
@@ -128,7 +131,7 @@
         saveToStorage();
       } catch (e) {
         statusEl.textContent = '';
-        alert(e.message);
+        alert(e.name === 'AbortError' ? '抓取逾時（超過 8 分鐘）。可取消勾選「深入相冊」再試。' : (e.message || '抓取失敗'));
       }
     };
     document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
