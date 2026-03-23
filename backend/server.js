@@ -152,6 +152,13 @@ async function scrapePage(url, keyword, opts = {}) {
         return urls;
       }
       const out = []; const seen = new Set();
+      function getGoodsUrl(container) {
+        const a = container.querySelector('a[href*="weshop/goods"]');
+        if (!a) return null;
+        const href = a.getAttribute('href');
+        if (!href) return null;
+        return href.startsWith('http') ? href : new URL(href, window.location.href).href;
+      }
       const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');
       if (containers.length > 0) {
         containers.forEach((c) => {
@@ -160,7 +167,8 @@ async function scrapePage(url, keyword, opts = {}) {
           const key = urls[0].split('?')[0];
           if (seen.has(key)) return;
           seen.add(key);
-          out.push({ imageUrls: urls, description: getDesc(c), imageUrl: urls[0] });
+          const goodsUrl = getGoodsUrl(c);
+          out.push({ imageUrls: urls, description: getDesc(c), imageUrl: urls[0], goodsUrl: goodsUrl || undefined });
         });
       }
       if (out.length === 0) {
@@ -182,16 +190,23 @@ async function scrapePage(url, keyword, opts = {}) {
       return out;
     });
     if (opts.deepScrape && raw.length > 0 && raw.length <= 80) {
+      const listUrl = page.url();
       const sel = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
       for (let i = 0; i < raw.length; i++) {
         try {
-          const clicked = await page.evaluate((idx, selector) => {
-            const cs = document.querySelectorAll(selector);
-            if (cs[idx]) { cs[idx].click(); return true; }
-            return false;
-          }, i, sel);
-          if (!clicked) continue;
-          await new Promise(r => setTimeout(r, 2500));
+          const goodsUrl = raw[i].goodsUrl && raw[i].goodsUrl.startsWith('http') ? raw[i].goodsUrl : null;
+          if (goodsUrl) {
+            await page.goto(goodsUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+            await new Promise(r => setTimeout(r, 2500));
+          } else {
+            const clicked = await page.evaluate((idx, selector) => {
+              const cs = document.querySelectorAll(selector);
+              if (cs[idx]) { cs[idx].click(); return true; }
+              return false;
+            }, i, sel);
+            if (!clicked) continue;
+            await new Promise(r => setTimeout(r, 2500));
+          }
           let detailImgs = await page.evaluate(() => {
             const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
             const seen = (u) => (s) => s.split('?')[0] === u.split('?')[0];
@@ -227,8 +242,13 @@ async function scrapePage(url, keyword, opts = {}) {
             raw[i].imageUrls = detailImgs;
             raw[i].imageUrl = detailImgs[0];
           }
-          await page.keyboard.press('Escape');
-          await new Promise(r => setTimeout(r, 600));
+          if (goodsUrl) {
+            await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+            await new Promise(r => setTimeout(r, 800));
+          } else {
+            await page.keyboard.press('Escape');
+            await new Promise(r => setTimeout(r, 600));
+          }
         } catch (_) {}
       }
     }

@@ -141,6 +141,7 @@
           saveToStorage();
         } else {
           statusEl.textContent = '已入庫 ' + n + ' 筆';
+          alert('已入庫完成');
           document.getElementById('linkToInventory').classList.remove('hidden');
           saveToStorage();
         }
@@ -155,8 +156,7 @@
       const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
       if (!sel.length) return;
       if (!confirm('確定要入庫已選的 ' + sel.length + ' 項？')) return;
-      if (!confirm('再次確認入庫？')) return;
-      doImport(sel);
+      await doImport(sel);
     };
   </script>
 </body>
