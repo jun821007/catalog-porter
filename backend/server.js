@@ -195,6 +195,7 @@ async function scrapePage(url, keyword, opts = {}) {
       for (let i = 0; i < raw.length; i++) {
         try {
           const goodsUrl = raw[i].goodsUrl && raw[i].goodsUrl.startsWith('http') ? raw[i].goodsUrl : null;
+          console.log('[CP:deepScrape] item ' + i + ' goodsUrl: ' + (goodsUrl ? 'found' : 'null'));
           if (goodsUrl) {
             await page.goto(goodsUrl, { waitUntil: 'networkidle2', timeout: 15000 });
             await new Promise(r => setTimeout(r, 2500));
@@ -238,9 +239,11 @@ async function scrapePage(url, keyword, opts = {}) {
             }
             return out;
           });
+          console.log('[CP:deepScrape] item ' + i + ' detailImgs count=' + detailImgs.length);
           if (detailImgs.length >= 1) {
             raw[i].imageUrls = detailImgs;
             raw[i].imageUrl = detailImgs[0];
+            console.log('[CP:deepScrape] item ' + i + ' updated to ' + detailImgs.length + ' images');
           }
           if (goodsUrl) {
             await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 15000 });
