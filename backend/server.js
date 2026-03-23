@@ -215,7 +215,7 @@ async function scrapePage(url, keyword, opts = {}) {
       }
       return out;
     });
-    if (opts.deepScrape && raw.length > 0 && raw.length <= 80) {
+    if (opts.deepScrape && raw.length > 0 && raw.length <= 200) {
       const listUrl = page.url();
       const withGoods = raw.filter((r) => r.goodsUrl).length;
       console.log('[CP:deepScrape] starting, raw.length=' + raw.length + ', with goodsUrl=' + withGoods + ', listUrl=' + listUrl);
@@ -347,6 +347,7 @@ app.post('/fetch', async (req, res) => {
   const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
   const deepScrape = !!(req.body && req.body.deepScrape);
   console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=' + deepScrape);
+  res.setTimeout(600000);
   try {
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'missing url' });
     const { raw, searchTriggered } = await scrapePage(url.trim(), keyword, { deepScrape });
