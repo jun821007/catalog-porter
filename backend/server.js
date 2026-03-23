@@ -332,11 +332,12 @@ app.get('/inventory', (req, res) => { res.sendFile(path.join(__dirname, '../fron
 app.get('/share/:id', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/share.html'), htmlOpts); });
 
 app.post('/fetch', async (req, res) => {
+  const url = (req.body && req.body.url) || req.query.url;
+  const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
+  const deepScrape = !!(req.body && req.body.deepScrape);
+  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=' + deepScrape);
   try {
-    const url = (req.body && req.body.url) || req.query.url;
-    const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'missing url' });
-    const deepScrape = !!(req.body && req.body.deepScrape);
     const { raw, searchTriggered } = await scrapePage(url.trim(), keyword, { deepScrape });
     const kw = (keyword || '').trim();
     const inStock = filterItems(raw, '');
