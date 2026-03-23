@@ -192,17 +192,35 @@ async function scrapePage(url, keyword, opts = {}) {
           }, i, sel);
           if (!clicked) continue;
           await new Promise(r => setTimeout(r, 2500));
-          const detailImgs = await page.evaluate(() => {
+          let detailImgs = await page.evaluate(() => {
             const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
+            const seen = (u) => (s) => s.split('?')[0] === u.split('?')[0];
+            const addUnique = (out, src) => {
+              if (src && !src.startsWith('data:') && !skipRe.test(src) && !out.some(seen(src))) out.push(src);
+            };
             const out = [];
-            const imgs = document.querySelectorAll('.van-swipe__track img, .swiper-wrapper img, .swiper-slide img, [class*="swiper"] img, [class*="gallery"] img, [class*="preview"] img, .van-image__img, [class*="detail"] img, [class*="modal"] img, [class*="popup"] img');
-            imgs.forEach(img => {
-              const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
-              if (src && !src.startsWith('data:') && !skipRe.test(src)) {
-                const k = src.split('?')[0];
-                if (!out.some(u => u.split('?')[0] === k)) out.push(src);
-              }
+            const selectors = [
+              '.van-swipe__track img', '.swiper-wrapper img', '.swiper-slide img', '[class*="swiper"] img',
+              '[class*="gallery"] img', '[class*="preview"] img', '.van-image__img', '[class*="detail"] img',
+              '[class*="modal"] img', '[class*="popup"] img',
+              '[class*="thumb"] img', '[class*="Thumb"] img'
+            ];
+            selectors.forEach(sel => {
+              document.querySelectorAll(sel).forEach(img => {
+                const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
+                addUnique(out, src);
+              });
             });
+            if (out.length <= 1) {
+              document.querySelectorAll('img').forEach(img => {
+                const w = img.naturalWidth || img.width || 0;
+                const h = img.naturalHeight || img.height || 0;
+                if (w > 100 && h > 100) {
+                  const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
+                  addUnique(out, src);
+                }
+              });
+            }
             return out;
           });
           if (detailImgs.length >= 1) {

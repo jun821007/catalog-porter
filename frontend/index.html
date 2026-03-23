@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Catalog Porter — 抓取入庫</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #floatImport { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 40; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #059669, #10b981); color: white; font-weight: 600; font-size: 0.875rem; box-shadow: 0 4px 14px rgba(5,150,105,.4); display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; transition: transform .2s, box-shadow .2s; }
+    #floatImport:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(5,150,105,.5); }
+    #floatImport:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
@@ -36,16 +41,22 @@
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
   </main>
+  <button type="button" id="floatImport" disabled title="入庫">入庫</button>
   <script>
     const grid = document.getElementById('grid');
     const statusEl = document.getElementById('status');
     const STORAGE_KEY = 'catalog_porter_fetch';
     let items = [];
     function proxy(u) { return '/proxy?url=' + encodeURIComponent(u); }
+    function updateFloatBtn() {
+      const n = [...document.querySelectorAll('.pick:checked')].length;
+      document.getElementById('floatImport').disabled = n === 0;
+    }
     function updateSel() {
       const n = [...document.querySelectorAll('.pick:checked')].length;
       document.getElementById('selCount').textContent = n;
       document.getElementById('btnImport').disabled = n === 0;
+      updateFloatBtn();
     }
     function saveToStorage() {
       try {
@@ -88,6 +99,7 @@
       });
       grid.querySelectorAll('.pick').forEach(cb => cb.onchange = () => { updateSel(); saveToStorage(); });
       updateSel();
+      updateFloatBtn();
     }
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveToStorage(); });
     window.addEventListener('beforeunload', saveToStorage);
@@ -116,9 +128,7 @@
     };
     document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
     document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); saveToStorage(); };
-    document.getElementById('btnImport').onclick = async () => {
-      const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
-      if (!sel.length) return;
+    async function doImport(sel) {
       statusEl.textContent = '入庫中...';
       try {
         const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel }) });
@@ -135,6 +145,18 @@
           saveToStorage();
         }
       } catch (e) { alert(e.message); statusEl.textContent = ''; }
+    }
+    document.getElementById('btnImport').onclick = async () => {
+      const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
+      if (!sel.length) return;
+      doImport(sel);
+    };
+    document.getElementById('floatImport').onclick = async () => {
+      const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
+      if (!sel.length) return;
+      if (!confirm('確定要入庫已選的 ' + sel.length + ' 項？')) return;
+      if (!confirm('再次確認入庫？')) return;
+      doImport(sel);
     };
   </script>
 </body>
