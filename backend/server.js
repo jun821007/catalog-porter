@@ -153,11 +153,26 @@ async function scrapePage(url, keyword, opts = {}) {
       }
       const out = []; const seen = new Set();
       function getGoodsUrl(container) {
-        const a = container.querySelector('a[href*="weshop/goods"]');
-        if (!a) return null;
-        const href = a.getAttribute('href');
-        if (!href) return null;
-        return href.startsWith('http') ? href : new URL(href, window.location.href).href;
+        const resolve = (href) => {
+          if (!href) return null;
+          return href.startsWith('http') ? href : new URL(href, window.location.href).href;
+        };
+        // container itself is an <a> with href containing "goods"
+        if (container.tagName === 'A') {
+          const h = container.getAttribute('href');
+          if (h && h.includes('goods')) return resolve(h);
+        }
+        // container might be inside an <a>
+        const parentA = container.closest && container.closest('a[href*="goods"]');
+        if (parentA) return resolve(parentA.getAttribute('href'));
+        // direct child/descendant links
+        const a1 = container.querySelector('a[href*="weshop/goods"]');
+        if (a1) return resolve(a1.getAttribute('href'));
+        const a2 = container.querySelector('a[href*="/goods/"]');
+        if (a2) return resolve(a2.getAttribute('href'));
+        const a3 = container.querySelector('a[href*="goods"]');
+        if (a3) return resolve(a3.getAttribute('href'));
+        return null;
       }
       const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');
       if (containers.length > 0) {
@@ -191,6 +206,47 @@ async function scrapePage(url, keyword, opts = {}) {
     });
     if (opts.deepScrape && raw.length > 0 && raw.length <= 80) {
       const listUrl = page.url();
+      const withGoods = raw.filter((r) => r.goodsUrl).length;
+      console.log('[CP:deepScrape] starting, raw.length=' + raw.length + ', with goodsUrl=' + withGoods + ', listUrl=' + listUrl);
+      // Handle direct goods URL: user pasted a single product page
+      if (raw.length === 1 && listUrl.includes('/goods/')) {
+        const detailImgs = await page.evaluate(() => {
+          const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
+          const seen = (u) => (s) => s.split('?')[0] === u.split('?')[0];
+          const addUnique = (out, src) => {
+            if (src && !src.startsWith('data:') && !skipRe.test(src) && !out.some(seen(src))) out.push(src);
+          };
+          const out = [];
+          const selectors = [
+            '.van-swipe__track img', '.swiper-wrapper img', '.swiper-slide img', '[class*="swiper"] img',
+            '[class*="gallery"] img', '[class*="preview"] img', '.van-image__img', '[class*="detail"] img',
+            '[class*="modal"] img', '[class*="popup"] img',
+            '[class*="thumb"] img', '[class*="Thumb"] img'
+          ];
+          selectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(img => {
+              const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
+              addUnique(out, src);
+            });
+          });
+          if (out.length <= 1) {
+            document.querySelectorAll('img').forEach(img => {
+              const w = img.naturalWidth || img.width || 0;
+              const h = img.naturalHeight || img.height || 0;
+              if (w > 100 && h > 100) {
+                const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
+                addUnique(out, src);
+              }
+            });
+          }
+          return out;
+        });
+        if (detailImgs.length >= 1) {
+          raw[0].imageUrls = detailImgs;
+          raw[0].imageUrl = detailImgs[0];
+          console.log('[CP:deepScrape] single goods page: updated raw[0] with ' + detailImgs.length + ' images');
+        }
+      } else {
       const sel = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
       for (let i = 0; i < raw.length; i++) {
         try {
@@ -252,7 +308,8 @@ async function scrapePage(url, keyword, opts = {}) {
             await page.keyboard.press('Escape');
             await new Promise(r => setTimeout(r, 600));
           }
-        } catch (_) {}
+        } catch (e) { console.log('[CP:deepScrape] item ' + i + ' error:', e.message); }
+      }
       }
     }
     return { raw, searchTriggered };
