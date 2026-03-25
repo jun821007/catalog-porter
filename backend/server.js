@@ -61,6 +61,64 @@ function filterItems(raw, keyword) {
   });
 }
 
+async function extractDetailImages(page) {
+  return await page.evaluate(() => {
+    const out = [];
+    const seen = new Set();
+    const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx\.qlogo|headimg|add_cart_default_cover|miniapp\/add_cart/i;
+
+    const addUnique = (src) => {
+      if (!src || src.startsWith('data:') || skipRe.test(src)) return;
+      const key = src.split('#')[0].split('?')[0];
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(src);
+      }
+    };
+
+    const pushFromImg = (img) => {
+      const srcset = img.getAttribute('srcset');
+      if (srcset) {
+        srcset.split(',').forEach((item) => addUnique((item.trim().split(' ')[0] || '').trim()));
+      }
+      addUnique(img.src);
+      addUnique(img.getAttribute('data-src'));
+      addUnique(img.getAttribute('data-original'));
+      addUnique(img.getAttribute('data-lazy-src'));
+      addUnique(img.getAttribute('data-url'));
+    };
+
+    // First pass: explicit gallery/album/thumb containers.
+    const selectors = [
+      '.van-swipe__track img',
+      '.swiper-wrapper img',
+      '.swiper-slide img',
+      '[class*="swiper"] img',
+      '[class*="gallery"] img',
+      '[class*="album"] img',
+      '[class*="preview"] img',
+      '[class*="thumb"] img',
+      '[class*="Thumb"] img',
+      '.van-image__img',
+      '[class*="detail"] img',
+      '[class*="modal"] img',
+      '[class*="popup"] img',
+    ];
+    selectors.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((img) => pushFromImg(img));
+    });
+
+    // Second pass: collect all meaningful images on page (for gallery layouts).
+    document.querySelectorAll('img').forEach((img) => {
+      const w = img.naturalWidth || img.width || 0;
+      const h = img.naturalHeight || img.height || 0;
+      if (w >= 60 && h >= 60) pushFromImg(img);
+    });
+
+    return out;
+  });
+}
+
 async function scrapePage(url, keyword, opts = {}) {
   let searchTriggered = false;
   const exe = process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -73,7 +131,7 @@ async function scrapePage(url, keyword, opts = {}) {
     const page = await browser.newPage();
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
     await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
-    await page.goto(url.trim(), { waitUntil: 'networkidle2', timeout: 120000 });
+    await page.goto(url.trim(), { waitUntil: 'networkidle2', timeout: 300000 });
     await new Promise((r) => setTimeout(r, 4000));
     const kw = (keyword || '').trim();
     if (kw) {
@@ -90,7 +148,7 @@ async function scrapePage(url, keyword, opts = {}) {
         if (shopId && isWecatalog) {
           const base = (finalUrl.match(/^(https?:\/\/[^/]+)/) || [])[1] || 'https://wecatalog.cn';
           const searchUrl = base + '/weshop/search/' + shopId + '?filterText=' + encodeURIComponent(kw);
-          await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 120000 });
+          await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 300000 });
           await new Promise((r) => setTimeout(r, 5000));
           searchTriggered = true;
         }
@@ -221,35 +279,7 @@ async function scrapePage(url, keyword, opts = {}) {
       console.log('[CP:deepScrape] starting, raw.length=' + raw.length + ', with goodsUrl=' + withGoods + ', listUrl=' + listUrl);
       // Handle direct goods URL: user pasted a single product page
       if (raw.length === 1 && listUrl.includes('/goods/')) {
-        const detailImgs = await page.evaluate(() => {
-          const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
-          const seen = (u) => (s) => s.split('?')[0] === u.split('?')[0];
-          const addUnique = (out, src) => {
-            if (src && !src.startsWith('data:') && !skipRe.test(src) && !out.some(seen(src))) out.push(src);
-          };
-          const out = [];
-          const selectors = [
-            '.van-swipe__track img', '.swiper-wrapper img', '.swiper-slide img', '[class*="swiper"] img',
-            '[class*="gallery"] img', '[class*="preview"] img', '.van-image__img', '[class*="detail"] img',
-            '[class*="modal"] img', '[class*="popup"] img',
-            '[class*="thumb"] img', '[class*="Thumb"] img'
-          ];
-          selectors.forEach(sel => {
-            document.querySelectorAll(sel).forEach(img => {
-              const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
-              addUnique(out, src);
-            });
-          });
-          document.querySelectorAll('img').forEach(img => {
-            const w = img.naturalWidth || img.width || 0;
-            const h = img.naturalHeight || img.height || 0;
-            if (w > 100 && h > 100) {
-              const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
-              addUnique(out, src);
-            }
-          });
-          return out;
-        });
+        const detailImgs = await extractDetailImages(page);
         if (detailImgs.length >= 1) {
           raw[0].imageUrls = detailImgs;
           raw[0].imageUrl = detailImgs[0];
@@ -262,7 +292,7 @@ async function scrapePage(url, keyword, opts = {}) {
           const goodsUrl = raw[i].goodsUrl && raw[i].goodsUrl.startsWith('http') ? raw[i].goodsUrl : null;
           console.log('[CP:deepScrape] item ' + i + ' goodsUrl: ' + (goodsUrl ? 'found' : 'null'));
           if (goodsUrl) {
-            await page.goto(goodsUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+            await page.goto(goodsUrl, { waitUntil: 'networkidle2', timeout: 45000 });
             await new Promise(r => setTimeout(r, 2500));
           } else {
             const clicked = await page.evaluate((idx, selector) => {
@@ -275,35 +305,7 @@ async function scrapePage(url, keyword, opts = {}) {
           }
           await page.evaluate(async () => { for (let j=0;j<15;j++) { window.scrollBy(0,400); await new Promise(r=>setTimeout(r,200)); } window.scrollTo(0,0); });
           await new Promise(r => setTimeout(r, 500));
-          let detailImgs = await page.evaluate(() => {
-            const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
-            const seen = (u) => (s) => s.split('?')[0] === u.split('?')[0];
-            const addUnique = (out, src) => {
-              if (src && !src.startsWith('data:') && !skipRe.test(src) && !out.some(seen(src))) out.push(src);
-            };
-            const out = [];
-            const selectors = [
-              '.van-swipe__track img', '.swiper-wrapper img', '.swiper-slide img', '[class*="swiper"] img',
-              '[class*="gallery"] img', '[class*="preview"] img', '.van-image__img', '[class*="detail"] img',
-              '[class*="modal"] img', '[class*="popup"] img',
-              '[class*="thumb"] img', '[class*="Thumb"] img'
-            ];
-            selectors.forEach(sel => {
-              document.querySelectorAll(sel).forEach(img => {
-                const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
-                addUnique(out, src);
-              });
-            });
-            document.querySelectorAll('img').forEach(img => {
-              const w = img.naturalWidth || img.width || 0;
-              const h = img.naturalHeight || img.height || 0;
-              if (w > 100 && h > 100) {
-                const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
-                addUnique(out, src);
-              }
-            });
-            return out;
-          });
+          let detailImgs = await extractDetailImages(page);
           console.log('[CP:deepScrape] item ' + i + ' detailImgs count=' + detailImgs.length);
           if (detailImgs.length >= 1) {
             raw[i].imageUrls = detailImgs;
@@ -311,7 +313,7 @@ async function scrapePage(url, keyword, opts = {}) {
             console.log('[CP:deepScrape] item ' + i + ' updated to ' + detailImgs.length + ' images');
           }
           if (goodsUrl) {
-            await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+            await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 45000 });
             await new Promise(r => setTimeout(r, 800));
           } else {
             await page.keyboard.press('Escape');
@@ -358,6 +360,10 @@ app.post('/fetch', async (req, res) => {
     } else if (kw && items.length > 0) {
       hint = '';
     }
+    items.forEach((it, idx) => {
+      const n = (it.imageUrls && it.imageUrls.length) || 0;
+      console.log('[CP:fetch] returning item[' + idx + '] imageUrls.length=' + n + ' keys=' + Object.keys(it).join(','));
+    });
     res.json({
       ok: true,
       count: items.length,
@@ -438,16 +444,19 @@ app.post('/import', async (req, res) => {
     const items = req.body && req.body.items;
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'items required' });
     console.log('[CP:import] received ' + items.length + ' items');
-    if (items.length > 0) {
-      const img = items[0].imageUrl || (items[0].imageUrls && items[0].imageUrls[0]);
-      console.log('[CP:import] item[0] imageUrl=' + (img || '(none)'));
-    }
+    items.forEach((it, idx) => {
+      const hasUrls = !!(it.imageUrls && Array.isArray(it.imageUrls));
+      const n = hasUrls ? it.imageUrls.length : 0;
+      const hasUrl = !!it.imageUrl;
+      console.log('[CP:import] item[' + idx + '] imageUrls=' + (hasUrls ? n : 'MISSING') + ' imageUrl=' + (hasUrl ? 'yes' : 'no') + ' keys=' + Object.keys(it).join(','));
+    });
     const saved = [];
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);
     const base = proto + '://' + host;
     for (const it of items) {
       const rawUrls = it.imageUrls && it.imageUrls.length ? it.imageUrls : [it.imageUrl || (it.imageUrls && it.imageUrls[0])];
+      console.log('[CP:import] rawUrls.length=' + rawUrls.length + ' from=' + (it.imageUrls ? 'imageUrls' : 'imageUrl'));
       const imageUrls = rawUrls.filter(Boolean).map((u) => {
         let url = u;
         if (url.includes('/proxy')) {
