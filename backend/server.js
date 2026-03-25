@@ -210,6 +210,10 @@ async function scrapePage(url, keyword, opts = {}) {
         return urls;
       }
       const out = []; const seen = new Set();
+      const resolveUrl = (h) => {
+        if (!h || typeof h !== 'string') return null;
+        try { return h.startsWith('http') ? h : new URL(h, window.location.href).href; } catch (_) { return null; }
+      };
       function getGoodsUrl(container) {
         const resolve = (href) => {
           if (!href) return null;
@@ -221,6 +225,12 @@ async function scrapePage(url, keyword, opts = {}) {
           if (m) return resolve(m[0]);
           if (/weshop\/(goods|detail)\//i.test(txt)) return resolve(txt);
           return null;
+        };
+        const shopId = (window.location.pathname.match(/\/weshop\/(?:search|store)\/([^\/?#]+)/i) || [])[1] || null;
+        const buildById = (id) => {
+          if (!id || !shopId) return null;
+          if (!/^[A-Za-z0-9_-]{8,}$/.test(id)) return null;
+          return resolve('/weshop/goods/' + shopId + '/' + id);
         };
 
         if (container.tagName === 'A') {
@@ -251,6 +261,21 @@ async function scrapePage(url, keyword, opts = {}) {
           if (u) return u;
         }
 
+        const idAttrs = ['data-goods-id', 'data-goodsid', 'data-item-id', 'data-itemid', 'data-id', 'goods-id', 'item-id'];
+        for (const a of idAttrs) {
+          const v = (container.getAttribute && container.getAttribute(a)) || '';
+          const u = buildById(v && String(v).trim());
+          if (u) return u;
+        }
+        const idEl = container.querySelector('[data-goods-id],[data-goodsid],[data-item-id],[data-itemid],[data-id]');
+        if (idEl) {
+          for (const a of idAttrs) {
+            const v = idEl.getAttribute && idEl.getAttribute(a);
+            const u = buildById(v && String(v).trim());
+            if (u) return u;
+          }
+        }
+
         return null;
       }
       const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');
@@ -265,6 +290,24 @@ async function scrapePage(url, keyword, opts = {}) {
           out.push({ imageUrls: urls, description: getDesc(c), imageUrl: urls[0], goodsUrl: goodsUrl || undefined });
         });
       }
+      // If DOM cards miss direct links, parse embedded page HTML for goods/detail URLs.
+      if (out.length > 0 && out.every((x) => !x.goodsUrl)) {
+        const html = document.documentElement.innerHTML || '';
+        const re = /(?:https?:\/\/[^"'\s]+)?\/weshop\/(?:goods|detail)\/[^"'\s<]+/ig;
+        const all = [];
+        let m;
+        while ((m = re.exec(html)) !== null) {
+          const abs = resolveUrl(m[0]);
+          if (abs && !all.includes(abs)) all.push(abs);
+          if (all.length >= out.length * 3) break;
+        }
+        if (all.length > 0) {
+          out.forEach((it, idx) => {
+            if (!it.goodsUrl && all[idx]) it.goodsUrl = all[idx];
+          });
+        }
+      }
+
       if (out.length === 0) {
         document.querySelectorAll('img').forEach((img) => {
           let src = img.getAttribute('data-src')||img.getAttribute('data-original')||img.getAttribute('data-lazy-src')||img.src;
