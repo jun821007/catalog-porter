@@ -213,34 +213,44 @@ async function scrapePage(url, keyword, opts = {}) {
       function getGoodsUrl(container) {
         const resolve = (href) => {
           if (!href) return null;
-          return href.startsWith('http') ? href : new URL(href, window.location.href).href;
+          try { return href.startsWith('http') ? href : new URL(href, window.location.href).href; } catch (_) { return null; }
         };
-        // container itself is an <a> with href containing "goods"
+        const pickGoodsLike = (txt) => {
+          if (!txt || typeof txt !== 'string') return null;
+          const m = txt.match(/https?:\/\/[^"'\s]+(weshop\/(goods|detail)\/[^"'\s]+)/i) || txt.match(/(\/weshop\/(goods|detail)\/[^"'\s]+)/i);
+          if (m) return resolve(m[0]);
+          if (/weshop\/(goods|detail)\//i.test(txt)) return resolve(txt);
+          return null;
+        };
+
         if (container.tagName === 'A') {
           const h = container.getAttribute('href');
-          if (h && h.includes('goods')) return resolve(h);
+          const u = pickGoodsLike(h);
+          if (u) return u;
         }
-        // container might be inside an <a>
-        const parentA = container.closest && container.closest('a[href*="goods"]');
-        if (parentA) return resolve(parentA.getAttribute('href'));
-        // direct child/descendant links
-        const a1 = container.querySelector('a[href*="weshop/goods"]');
-        if (a1) return resolve(a1.getAttribute('href'));
-        const a2 = container.querySelector('a[href*="/goods/"]');
-        if (a2) return resolve(a2.getAttribute('href'));
-        const a3 = container.querySelector('a[href*="goods"]');
-        if (a3) return resolve(a3.getAttribute('href'));
-        const a4 = container.querySelector('a[href*="/p/"]');
-        if (a4) return resolve(a4.getAttribute('href'));
-        const a5 = container.querySelector('a[href*="detail"]');
-        if (a5) return resolve(a5.getAttribute('href'));
-        const a6 = container.querySelector('a[href*="/item/"]');
-        if (a6) return resolve(a6.getAttribute('href'));
-        const anyA = container.querySelector('a[href^="/"], a[href^="http"]');
-        if (anyA) {
-          const h = anyA.getAttribute('href');
-          if (h && !h.match(/#$|javascript:|void\s*\(/)) return resolve(h);
+        const parentA = container.closest && container.closest('a[href]');
+        if (parentA) {
+          const u = pickGoodsLike(parentA.getAttribute('href'));
+          if (u) return u;
         }
+
+        const links = container.querySelectorAll('a[href], [data-href], [data-url], [data-link], [data-route], [onclick]');
+        for (const el of links) {
+          const attrs = ['href', 'data-href', 'data-url', 'data-link', 'data-route', 'onclick'];
+          for (const a of attrs) {
+            const v = el.getAttribute && el.getAttribute(a);
+            const u = pickGoodsLike(v);
+            if (u) return u;
+          }
+        }
+
+        const attrs = ['href', 'data-href', 'data-url', 'data-link', 'data-route', 'onclick'];
+        for (const a of attrs) {
+          const v = container.getAttribute && container.getAttribute(a);
+          const u = pickGoodsLike(v);
+          if (u) return u;
+        }
+
         return null;
       }
       const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');
@@ -298,6 +308,50 @@ async function scrapePage(url, keyword, opts = {}) {
             .filter((x) => !!x.goodsUrl);
 
           console.log('[CP:deepScrape] direct goodsUrl targets=' + targets.length);
+
+          if (targets.length === 0) {
+            const sel = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
+            for (let i = 0; i < raw.length; i++) {
+              try {
+                const clicked = await page.evaluate((idx, selector) => {
+                  const cs = document.querySelectorAll(selector);
+                  if (!cs[idx]) return false;
+                  cs[idx].scrollIntoView({ block: 'center' });
+                  cs[idx].click();
+                  return true;
+                }, i, sel);
+                if (!clicked) continue;
+
+                await new Promise((r) => setTimeout(r, 1200));
+                await page.evaluate(async () => {
+                  for (let j = 0; j < 6; j++) {
+                    window.scrollBy(0, 420);
+                    await new Promise((r) => setTimeout(r, 120));
+                  }
+                  window.scrollTo(0, 0);
+                });
+                const detailImgs = await extractDetailImages(page);
+                if (detailImgs.length >= 1) {
+                  raw[i].imageUrls = detailImgs;
+                  raw[i].imageUrl = detailImgs[0];
+                  console.log('[CP:deepScrape] fallback-click item ' + i + ' updated to ' + detailImgs.length + ' images');
+                }
+
+                // Prefer browser back; if no history transition then press escape.
+                const before = page.url();
+                try {
+                  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 12000 });
+                } catch (_) {
+                  await page.keyboard.press('Escape');
+                }
+                await new Promise((r) => setTimeout(r, 500));
+                const after = page.url();
+                if (after !== before && i % 12 === 0) await autoScroll(page);
+              } catch (e) {
+                console.log('[CP:deepScrape] fallback-click item ' + i + ' error: ' + e.message);
+              }
+            }
+          }
 
           for (const t of targets) {
             try {
