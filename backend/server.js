@@ -286,41 +286,60 @@ async function scrapePage(url, keyword, opts = {}) {
           console.log('[CP:deepScrape] single goods page: updated raw[0] with ' + detailImgs.length + ' images');
         }
       } else {
-      const sel = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
-      for (let i = 0; i < raw.length; i++) {
+        // Fast path: do NOT bounce back to list page per item.
+        // Open a dedicated detail page and crawl goodsUrl targets directly.
+        const detailPage = await browser.newPage();
         try {
-          const goodsUrl = raw[i].goodsUrl && raw[i].goodsUrl.startsWith('http') ? raw[i].goodsUrl : null;
-          console.log('[CP:deepScrape] item ' + i + ' goodsUrl: ' + (goodsUrl ? 'found' : 'null'));
-          if (goodsUrl) {
-            await page.goto(goodsUrl, { waitUntil: 'networkidle2', timeout: 45000 });
-            await new Promise(r => setTimeout(r, 2500));
-          } else {
-            const clicked = await page.evaluate((idx, selector) => {
-              const cs = document.querySelectorAll(selector);
-              if (cs[idx]) { cs[idx].click(); return true; }
-              return false;
-            }, i, sel);
-            if (!clicked) continue;
-            await new Promise(r => setTimeout(r, 2500));
+          await detailPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+          await detailPage.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+
+          const targets = raw
+            .map((it, idx) => ({ idx, goodsUrl: (it.goodsUrl && it.goodsUrl.startsWith('http')) ? it.goodsUrl : null }))
+            .filter((x) => !!x.goodsUrl);
+
+          console.log('[CP:deepScrape] direct goodsUrl targets=' + targets.length);
+
+          for (const t of targets) {
+            try {
+              let detailImgs = [];
+              let lastErr = null;
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                  await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+                  await new Promise((r) => setTimeout(r, 900));
+                  await detailPage.evaluate(async () => {
+                    for (let j = 0; j < 8; j++) {
+                      window.scrollBy(0, 480);
+                      await new Promise((r) => setTimeout(r, 120));
+                    }
+                    window.scrollTo(0, 0);
+                  });
+                  detailImgs = await extractDetailImages(detailPage);
+                  if (detailImgs.length > 0) break;
+                } catch (err) {
+                  lastErr = err;
+                }
+              }
+
+              if (detailImgs.length >= 1) {
+                raw[t.idx].imageUrls = detailImgs;
+                raw[t.idx].imageUrl = detailImgs[0];
+                console.log('[CP:deepScrape] item ' + t.idx + ' updated to ' + detailImgs.length + ' images');
+              } else {
+                console.log('[CP:deepScrape] item ' + t.idx + ' no detail images' + (lastErr ? ': ' + lastErr.message : ''));
+              }
+            } catch (e) {
+              console.log('[CP:deepScrape] item ' + t.idx + ' error: ' + e.message);
+            }
           }
-          await page.evaluate(async () => { for (let j=0;j<15;j++) { window.scrollBy(0,400); await new Promise(r=>setTimeout(r,200)); } window.scrollTo(0,0); });
-          await new Promise(r => setTimeout(r, 500));
-          let detailImgs = await extractDetailImages(page);
-          console.log('[CP:deepScrape] item ' + i + ' detailImgs count=' + detailImgs.length);
-          if (detailImgs.length >= 1) {
-            raw[i].imageUrls = detailImgs;
-            raw[i].imageUrl = detailImgs[0];
-            console.log('[CP:deepScrape] item ' + i + ' updated to ' + detailImgs.length + ' images');
+
+          const missingGoods = raw.length - targets.length;
+          if (missingGoods > 0) {
+            console.log('[CP:deepScrape] skipped ' + missingGoods + ' items without goodsUrl; kept list-image fallback');
           }
-          if (goodsUrl) {
-            await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 45000 });
-            await new Promise(r => setTimeout(r, 800));
-          } else {
-            await page.keyboard.press('Escape');
-            await new Promise(r => setTimeout(r, 600));
-          }
-        } catch (e) { console.log('[CP:deepScrape] item ' + i + ' error:', e.message); }
-      }
+        } finally {
+          await detailPage.close();
+        }
       }
     }
     return { raw, searchTriggered };
