@@ -310,19 +310,34 @@ async function scrapePage(url, keyword, opts = {}) {
           console.log('[CP:deepScrape] direct goodsUrl targets=' + targets.length);
 
           if (targets.length === 0) {
-            const sel = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
+            const selPrimary = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
+            const selSecondary = 'a[href], [onclick], [role="button"], .van-cell, .van-card, .van-grid-item, [class*="item"], [class*="card"]';
+            let updated = 0;
             for (let i = 0; i < raw.length; i++) {
               try {
-                const clicked = await page.evaluate((idx, selector) => {
-                  const cs = document.querySelectorAll(selector);
-                  if (!cs[idx]) return false;
-                  cs[idx].scrollIntoView({ block: 'center' });
-                  cs[idx].click();
-                  return true;
-                }, i, sel);
-                if (!clicked) continue;
+                const clickMeta = await page.evaluate((idx, primary, secondary) => {
+                  const p = Array.from(document.querySelectorAll(primary));
+                  const s = Array.from(document.querySelectorAll(secondary)).filter((el) => {
+                    const r = el.getBoundingClientRect();
+                    if (r.width < 40 || r.height < 40) return false;
+                    return !!(el.querySelector && el.querySelector('img'));
+                  });
+                  const cs = p.length > idx ? p : s;
+                  const el = cs[idx];
+                  if (!el) return { clicked: false, pCount: p.length, sCount: s.length };
+                  el.scrollIntoView({ block: 'center' });
+                  el.click();
+                  return { clicked: true, pCount: p.length, sCount: s.length };
+                }, i, selPrimary, selSecondary);
 
-                await new Promise((r) => setTimeout(r, 1200));
+                if (!clickMeta.clicked) {
+                  if (i < 5 || i % 20 === 0) {
+                    console.log('[CP:deepScrape] fallback-click item ' + i + ' skip clicked=false primary=' + clickMeta.pCount + ' secondary=' + clickMeta.sCount);
+                  }
+                  continue;
+                }
+
+                await new Promise((r) => setTimeout(r, 1300));
                 await page.evaluate(async () => {
                   for (let j = 0; j < 6; j++) {
                     window.scrollBy(0, 420);
@@ -331,10 +346,13 @@ async function scrapePage(url, keyword, opts = {}) {
                   window.scrollTo(0, 0);
                 });
                 const detailImgs = await extractDetailImages(page);
-                if (detailImgs.length >= 1) {
+                if (detailImgs.length >= 2) {
                   raw[i].imageUrls = detailImgs;
                   raw[i].imageUrl = detailImgs[0];
+                  updated++;
                   console.log('[CP:deepScrape] fallback-click item ' + i + ' updated to ' + detailImgs.length + ' images');
+                } else if (i < 5 || i % 20 === 0) {
+                  console.log('[CP:deepScrape] fallback-click item ' + i + ' detailImgs=' + detailImgs.length);
                 }
 
                 // Prefer browser back; if no history transition then press escape.
@@ -344,13 +362,14 @@ async function scrapePage(url, keyword, opts = {}) {
                 } catch (_) {
                   await page.keyboard.press('Escape');
                 }
-                await new Promise((r) => setTimeout(r, 500));
+                await new Promise((r) => setTimeout(r, 550));
                 const after = page.url();
                 if (after !== before && i % 12 === 0) await autoScroll(page);
               } catch (e) {
                 console.log('[CP:deepScrape] fallback-click item ' + i + ' error: ' + e.message);
               }
             }
+            console.log('[CP:deepScrape] fallback-click updated items=' + updated + '/' + raw.length);
           }
 
           for (const t of targets) {
