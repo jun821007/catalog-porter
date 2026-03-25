@@ -6,17 +6,32 @@
   <title>Catalog Porter — 抓取入庫</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
+    body { background: #f3f6fb !important; color: #0f172a !important; }
+    header { background: #ffffff; border-bottom-color: #e2e8f0 !important; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
+    header h1 { color: #1d4ed8 !important; }
+    header nav a:first-child { color: #1e40af !important; }
+    header nav a:last-child { color: #475569 !important; }
+    main > div:first-child { background: #ffffff !important; border-color: #dbe3ef !important; box-shadow: 0 8px 24px rgba(15,23,42,.06); }
+    #status { color: #334155 !important; font-weight: 500; }
+    #grid > div { background: #ffffff !important; border-color: #dbe3ef !important; box-shadow: 0 2px 12px rgba(15,23,42,.05); }
+    #grid .text-slate-300 { color: #334155 !important; }
+    #grid .bg-slate-800 { background: #f1f5f9 !important; }
     #floatImport { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 40; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #059669, #10b981); color: white; font-weight: 600; font-size: 0.875rem; box-shadow: 0 4px 14px rgba(5,150,105,.4); display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; transition: transform .2s, box-shadow .2s; }
     #floatImport:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(5,150,105,.5); }
     #floatImport:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    /* 輸入框與按鈕可讀性 - 最高優先級 */
-    #url, #keyword { color: #fff !important; background-color: #1e293b !important; }
-    #url::placeholder, #keyword::placeholder { color: #94a3b8; }
-    #btnAll, #btnNone { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #475569; padding: 0.25rem 0.5rem; }
-    #btnAll:hover, #btnNone:hover { background: #334155 !important; color: #fff !important; }
+    #url, #keyword { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
+    #url::placeholder, #keyword::placeholder { color: #64748b; }
+    #btnFetch { background: #2563eb !important; color: #fff !important; }
+    #btnFetch:hover { background: #1d4ed8 !important; }
+    #btnImport { background: #059669 !important; color: #fff !important; }
+    #btnImport:hover { background: #047857 !important; }
+    #btnAll, #btnNone { background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1; padding: 0.35rem 0.6rem; border-radius: .5rem; }
+    #btnAll:hover, #btnNone:hover { background: #f8fafc !important; color: #0f172a !important; }
+    .text-slate-400 { color: #64748b !important; }
+    .text-slate-300 { color: #334155 !important; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="text-slate-100 min-h-screen">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
     <nav class="flex gap-3 text-sm">

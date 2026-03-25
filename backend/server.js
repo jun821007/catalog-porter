@@ -374,7 +374,14 @@ app.post('/fetch', async (req, res) => {
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    const msg = String((e && e.message) || e || '');
+    if (/detached\s*frame/i.test(msg)) {
+      return res.status(503).json({
+        ok: false,
+        error: '頁面在抓取中自動重載，這次已中斷。請直接再按一次「開始抓取」。',
+      });
+    }
+    res.status(500).json({ ok: false, error: msg });
   }
 });
 
@@ -481,7 +488,14 @@ app.post('/import', async (req, res) => {
     res.json(out);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    const msg = String((e && e.message) || e || '');
+    if (/detached\s*frame/i.test(msg)) {
+      return res.status(503).json({
+        ok: false,
+        error: '頁面在抓取中自動重載，這次已中斷。請直接再按一次「開始抓取」。',
+      });
+    }
+    res.status(500).json({ ok: false, error: msg });
   }
 });
 
