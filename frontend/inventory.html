@@ -6,17 +6,27 @@
   <title>我的庫存 | Catalog Porter</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    /* 庫存頁面對比度 */
-    #q { color: #fff !important; background-color: #1e293b !important; }
-    #q::placeholder { color: #94a3b8; }
-    #btnSearch { color: #f1f5f9 !important; }
+    body { background: #f3f6fb !important; color: #0f172a !important; }
+    header { background: #ffffff; border-bottom-color: #e2e8f0 !important; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
+    header h1 { display: none !important; }
+    header nav a:first-child { color: #475569 !important; }
+    header nav a:last-child { color: #1e40af !important; }
+    #q { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
+    #q::placeholder { color: #64748b; }
+    #btnSearch { background: #2563eb !important; color: #fff !important; }
     #btnShare, #btnBatchDel { color: #fff !important; }
-    #btnSelectAll, #btnSelectNone { background: #1e293b !important; color: #e2e8f0 !important; border: 1px solid #475569; padding: 0.25rem 0.5rem; }
-    #btnSelectAll:hover, #btnSelectNone:hover { background: #334155 !important; color: #fff !important; }
+    #btnSelectAll, #btnSelectNone { background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1; padding: 0.35rem 0.6rem; border-radius: .5rem; text-decoration: none !important; }
+    #btnSelectAll:hover, #btnSelectNone:hover { background: #f8fafc !important; color: #0f172a !important; }
+    .bg-slate-900 { background: #ffffff !important; }
+    .bg-slate-800 { background: #f1f5f9 !important; }
+    .border-slate-800, .border-slate-700 { border-color: #dbe3ef !important; }
+    .text-slate-300 { color: #334155 !important; }
+    .text-slate-400, #countBadge { color: #64748b !important; }
+    .text-slate-500 { color: #64748b !important; }
+    .text-amber-400 { color: #1e40af !important; }
+    .btnDel { color: #dc2626 !important; }
+    .btnDel:hover { color: #b91c1c !important; }
     #lightboxClose { color: #fff !important; }
-    #countBadge { color: #cbd5e1 !important; }
-    .btnDel { color: #fca5a5 !important; }
-    .btnDel:hover { color: #fff !important; }
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
     #lightbox.show { display: flex; }
     #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
@@ -31,7 +41,7 @@
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="text-slate-100 min-h-screen">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">我的庫存<span id="countBadge" class="text-slate-400 font-normal ml-2 text-base"></span></h1>
     <nav class="flex gap-3 text-sm">

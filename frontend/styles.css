@@ -25,7 +25,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; }
+body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 17px; line-height: 1.6; }
 img { max-width: 100%; height: auto; display: block; }
 
 .bg-slate-950 { background-color: var(--slate-950); }
@@ -113,10 +113,10 @@ img { max-width: 100%; height: auto; display: block; }
 .no-underline { text-decoration: none; }
 .underline { text-decoration: underline; }
 
-.text-xs { font-size: 0.75rem; line-height: 1rem; }
-.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-.text-base { font-size: 1rem; line-height: 1.5rem; }
-.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-xs { font-size: 0.85rem; line-height: 1.2rem; }
+.text-sm { font-size: 0.98rem; line-height: 1.4rem; }
+.text-base { font-size: 1.06rem; line-height: 1.6rem; }
+.text-xl { font-size: 1.5rem; line-height: 2rem; }
 
 .font-medium { font-weight: 500; }
 .font-semibold { font-weight: 600; }
@@ -156,9 +156,10 @@ button.text-red-400.hover\:text-red-300:hover { color: var(--red-300); }
 }
 
 /* Form contrast - light text on dark inputs */
-input, textarea, select { color: #f1f5f9 !important; background-color: var(--slate-800) !important; }
+input, textarea, select { color: #f1f5f9 !important; background-color: var(--slate-800) !important; font-size: 1rem; }
 input::placeholder, textarea::placeholder { color: #94a3b8; opacity: 0.9; }
 input:-webkit-autofill { -webkit-text-fill-color: #f1f5f9; -webkit-box-shadow: 0 0 0 1000px var(--slate-800) inset; }
+button { font-size: 1rem; }
 button.text-slate-400, button.underline { background-color: transparent !important; color: #cbd5e1 !important; border: none; }
 button.text-slate-400:hover, button.underline:hover { color: #f1f5f9 !important; }
 label, .text-slate-400 { color: #cbd5e1; }
