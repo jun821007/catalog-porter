@@ -86,11 +86,8 @@
     function saveToStorage() {
       try {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-          items,
-          checked: [...document.querySelectorAll('.pick:checked')].map(c => +c.dataset.i),
           url: document.getElementById('url').value,
-          keyword: document.getElementById('keyword').value,
-          status: statusEl.textContent
+          keyword: document.getElementById('keyword').value
         }));
       } catch (_) {}
     }
@@ -99,19 +96,13 @@
         const raw = sessionStorage.getItem(STORAGE_KEY);
         if (!raw) return;
         const data = JSON.parse(raw);
-        if (!data.items || !data.items.length) return;
-        items = data.items;
         if (data.url) document.getElementById('url').value = data.url;
         if (data.keyword) document.getElementById('keyword').value = data.keyword || '';
-        statusEl.textContent = data.status || '';
-        renderGrid();
-        if (Array.isArray(data.checked) && data.checked.length) {
-          data.checked.forEach(i => {
-            const cb = grid.querySelector('.pick[data-i="' + i + '"]');
-            if (cb) cb.checked = true;
-          });
-          updateSel();
-        }
+        // Do not restore previous result grid to avoid stale-item confusion when switching tabs.
+        items = [];
+        grid.innerHTML = '';
+        statusEl.textContent = '';
+        updateSel();
       } catch (_) {}
     }
     function renderGrid() {

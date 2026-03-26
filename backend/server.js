@@ -486,8 +486,8 @@ app.get('/share/:id', (req, res) => { res.sendFile(path.join(__dirname, '../fron
 app.post('/fetch', async (req, res) => {
   const url = (req.body && req.body.url) || req.query.url;
   const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
-  const deepScrape = true;
-  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=FORCED_TRUE');
+  const deepScrape = (req.body && typeof req.body.deepScrape === 'boolean') ? req.body.deepScrape : true;
+  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=' + deepScrape);
   res.setTimeout(600000);
   try {
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'missing url' });
@@ -588,6 +588,66 @@ function extractUrlFromProxy(proxyPath) {
   }
 }
 
+
+async function enrichSelectedItemsByGoodsUrl(items) {
+  const targets = items
+    .map((it, idx) => ({
+      idx,
+      goodsUrl: (it && typeof it.goodsUrl === 'string' && it.goodsUrl.startsWith('http')) ? it.goodsUrl : '',
+      currentCount: Array.isArray(it && it.imageUrls) ? it.imageUrls.length : (it && it.imageUrl ? 1 : 0),
+    }))
+    .filter((x) => x.goodsUrl && x.currentCount <= 1);
+
+  if (!targets.length) return;
+  console.log('[CP:import] enriching selected items by goodsUrl count=' + targets.length);
+
+  const browser = await puppeteer.launch({
+    headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+
+    for (const t of targets) {
+      let imgs = [];
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          await page.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+          await new Promise((r) => setTimeout(r, 450));
+          await page.evaluate(async () => {
+            for (let j = 0; j < 5; j++) {
+              window.scrollBy(0, 520);
+              await new Promise((r) => setTimeout(r, 90));
+            }
+            window.scrollTo(0, 0);
+          });
+          imgs = await extractDetailImages(page);
+          const detailDesc = await extractDetailDescription(page);
+          if (detailDesc && detailDesc.length >= 20) items[t.idx].description = detailDesc;
+          if (imgs.length > 1) break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      if (imgs.length > 1) {
+        items[t.idx].imageUrls = imgs;
+        items[t.idx].imageUrl = imgs[0];
+        console.log('[CP:import] enriched item ' + t.idx + ' images=' + imgs.length);
+      } else {
+        console.log('[CP:import] enrich miss item ' + t.idx + (lastErr ? ': ' + lastErr.message : ''));
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
 app.post('/import', async (req, res) => {
   try {
     const items = req.body && req.body.items;
@@ -599,6 +659,7 @@ app.post('/import', async (req, res) => {
       const hasUrl = !!it.imageUrl;
       console.log('[CP:import] item[' + idx + '] imageUrls=' + (hasUrls ? n : 'MISSING') + ' imageUrl=' + (hasUrl ? 'yes' : 'no') + ' keys=' + Object.keys(it).join(','));
     });
+    await enrichSelectedItemsByGoodsUrl(items);
     const saved = [];
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);
