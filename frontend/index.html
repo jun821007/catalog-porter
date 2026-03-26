@@ -133,7 +133,7 @@
       try {
         const deepScrape = document.getElementById('deepScrape').checked;
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 8*60*1000);
+        const t = setTimeout(() => ctrl.abort(), deepScrape ? 12*60*1000 : 8*60*1000);
         let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }
         
         const j = await r.json();

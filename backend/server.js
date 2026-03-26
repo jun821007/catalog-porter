@@ -323,10 +323,15 @@ async function scrapePage(url, keyword, opts = {}) {
       } else {
         // Fast path: do NOT bounce back to list page per item.
         // Open a dedicated detail page and crawl goodsUrl targets directly.
-        const detailPage = await browser.newPage();
+        const detailConcurrency = 3;
+        const detailPages = [];
         try {
-          await detailPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
-          await detailPage.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+          for (let c = 0; c < detailConcurrency; c++) {
+            const p = await browser.newPage();
+            await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+            await p.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+            detailPages.push(p);
+          }
 
           const workIndices = raw.map((_, idx) => idx);
 
@@ -404,18 +409,18 @@ async function scrapePage(url, keyword, opts = {}) {
             console.log('[CP:deepScrape] fallback-click updated items=' + updated + '/' + workIndices.length);
           }
 
-          for (const t of targets) {
+          async function processTarget(t, detailPage) {
             try {
               let detailImgs = [];
               let lastErr = null;
               for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
-                  await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-                  await new Promise((r) => setTimeout(r, 900));
+                  await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+                  await new Promise((r) => setTimeout(r, 500));
                   await detailPage.evaluate(async () => {
-                    for (let j = 0; j < 8; j++) {
-                      window.scrollBy(0, 480);
-                      await new Promise((r) => setTimeout(r, 120));
+                    for (let j = 0; j < 5; j++) {
+                      window.scrollBy(0, 520);
+                      await new Promise((r) => setTimeout(r, 100));
                     }
                     window.scrollTo(0, 0);
                   });
@@ -440,12 +445,22 @@ async function scrapePage(url, keyword, opts = {}) {
             }
           }
 
+          const queue = targets.slice();
+          const workers = detailPages.map((p) => (async () => {
+            while (queue.length) {
+              const t = queue.shift();
+              if (!t) break;
+              await processTarget(t, p);
+            }
+          })());
+          await Promise.all(workers);
+
           const missingGoods = workIndices.length - targets.length;
           if (missingGoods > 0) {
             console.log('[CP:deepScrape] skipped ' + missingGoods + ' items without goodsUrl; kept list-image fallback');
           }
         } finally {
-          await detailPage.close();
+          for (const p of detailPages) { try { await p.close(); } catch (_) {} }
         }
       }
     }
@@ -484,8 +499,7 @@ app.post('/fetch', async (req, res) => {
     if (kw && items.length === 0) {
       hint = 'No exact keyword match. Try another keyword or leave blank.';
     } else if (kw && items.length > 0 && items.length < 8 && inStock.length > items.length) {
-      hint = 'Few exact matches. Showing more candidate items.';
-      items = inStock;
+      hint = 'Few exact matches. Try a shorter keyword for broader results.';
     }
     items.forEach((it, idx) => {
       const n = (it.imageUrls && it.imageUrls.length) || 0;
@@ -573,6 +587,66 @@ function extractUrlFromProxy(proxyPath) {
   }
 }
 
+
+async function enrichSelectedItemsByGoodsUrl(items) {
+  const targets = items
+    .map((it, idx) => ({
+      idx,
+      goodsUrl: (it && typeof it.goodsUrl === 'string' && it.goodsUrl.startsWith('http')) ? it.goodsUrl : '',
+      currentCount: Array.isArray(it && it.imageUrls) ? it.imageUrls.length : (it && it.imageUrl ? 1 : 0),
+    }))
+    .filter((x) => x.goodsUrl && x.currentCount <= 1);
+
+  if (!targets.length) return;
+  console.log('[CP:import] enriching selected items by goodsUrl count=' + targets.length);
+
+  const browser = await puppeteer.launch({
+    headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+
+    for (const t of targets) {
+      let imgs = [];
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          await page.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+          await new Promise((r) => setTimeout(r, 450));
+          await page.evaluate(async () => {
+            for (let j = 0; j < 5; j++) {
+              window.scrollBy(0, 520);
+              await new Promise((r) => setTimeout(r, 90));
+            }
+            window.scrollTo(0, 0);
+          });
+          imgs = await extractDetailImages(page);
+          const detailDesc = await extractDetailDescription(page);
+          if (detailDesc && detailDesc.length >= 20) items[t.idx].description = detailDesc;
+          if (imgs.length > 1) break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      if (imgs.length > 1) {
+        items[t.idx].imageUrls = imgs;
+        items[t.idx].imageUrl = imgs[0];
+        console.log('[CP:import] enriched item ' + t.idx + ' images=' + imgs.length);
+      } else {
+        console.log('[CP:import] enrich miss item ' + t.idx + (lastErr ? ': ' + lastErr.message : ''));
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
 app.post('/import', async (req, res) => {
   try {
     const items = req.body && req.body.items;
@@ -584,6 +658,7 @@ app.post('/import', async (req, res) => {
       const hasUrl = !!it.imageUrl;
       console.log('[CP:import] item[' + idx + '] imageUrls=' + (hasUrls ? n : 'MISSING') + ' imageUrl=' + (hasUrl ? 'yes' : 'no') + ' keys=' + Object.keys(it).join(','));
     });
+    await enrichSelectedItemsByGoodsUrl(items);
     const saved = [];
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);
