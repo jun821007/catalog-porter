@@ -119,6 +119,31 @@ async function extractDetailImages(page) {
   });
 }
 
+async function extractDetailDescription(page) {
+  return await page.evaluate(() => {
+    const pieces = [];
+    const candidates = [
+      '[class*="detail"]',
+      '[class*="goods"]',
+      '[class*="desc"]',
+      '[class*="content"]',
+      '.van-cell',
+      '.van-card',
+      'main',
+      'body',
+    ];
+    for (const sel of candidates) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const t = (el.innerText || '').replace(/\s+/g, ' ').trim();
+      if (t.length >= 10) pieces.push(t);
+      if (pieces.length >= 2) break;
+    }
+    const joined = pieces.join(' ').replace(/\s+/g, ' ').trim();
+    return joined.slice(0, 1200);
+  });
+}
+
 async function scrapePage(url, keyword, opts = {}) {
   let searchTriggered = false;
   const exe = process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -303,13 +328,7 @@ async function scrapePage(url, keyword, opts = {}) {
           await detailPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
           await detailPage.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
 
-          const deepIndices = (kw
-            ? raw
-                .map((it, idx) => ({ it, idx }))
-                .filter((x) => matchesKeyword(x.it.description, (x.it.imageUrls && x.it.imageUrls[0]) || x.it.imageUrl, kw))
-                .map((x) => x.idx)
-            : raw.map((_, idx) => idx));
-          const workIndices = deepIndices.length ? deepIndices : raw.map((_, idx) => idx);
+          const workIndices = raw.map((_, idx) => idx);
 
           const targets = workIndices
             .map((idx) => ({ idx, goodsUrl: (raw[idx].goodsUrl && raw[idx].goodsUrl.startsWith('http')) ? raw[idx].goodsUrl : null }))
@@ -357,6 +376,8 @@ async function scrapePage(url, keyword, opts = {}) {
                   window.scrollTo(0, 0);
                 });
                 const detailImgs = await extractDetailImages(page);
+                const detailDesc = await extractDetailDescription(page);
+                if (detailDesc && detailDesc.length >= 20) raw[idx].description = detailDesc;
                 if (detailImgs.length >= 2) {
                   raw[idx].imageUrls = detailImgs;
                   raw[idx].imageUrl = detailImgs[0];
@@ -375,7 +396,7 @@ async function scrapePage(url, keyword, opts = {}) {
                 }
                 await new Promise((r) => setTimeout(r, 550));
                 const after = page.url();
-                if (after !== before && i % 12 === 0) await autoScroll(page);
+                if (after !== before && idx % 12 === 0) await autoScroll(page);
               } catch (e) {
                 console.log('[CP:deepScrape] fallback-click item ' + idx + ' error: ' + e.message);
               }
@@ -399,6 +420,8 @@ async function scrapePage(url, keyword, opts = {}) {
                     window.scrollTo(0, 0);
                   });
                   detailImgs = await extractDetailImages(detailPage);
+                  const detailDesc = await extractDetailDescription(detailPage);
+                  if (detailDesc && detailDesc.length >= 20) raw[t.idx].description = detailDesc;
                   if (detailImgs.length > 0) break;
                 } catch (err) {
                   lastErr = err;
@@ -459,9 +482,10 @@ app.post('/fetch', async (req, res) => {
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
     let hint = '';
     if (kw && items.length === 0) {
-      hint = '關鍵字篩選後無結果，可試其他關鍵字或留空抓取全部';
-    } else if (kw && items.length > 0) {
-      hint = '';
+      hint = 'No exact keyword match. Try another keyword or leave blank.';
+    } else if (kw && items.length > 0 && items.length < 8 && inStock.length > items.length) {
+      hint = 'Few exact matches. Showing more candidate items.';
+      items = inStock;
     }
     items.forEach((it, idx) => {
       const n = (it.imageUrls && it.imageUrls.length) || 0;

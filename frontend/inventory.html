@@ -90,14 +90,32 @@
     let lightboxImgs = [];
     let lightboxIdx = 0;
     let lightboxBaseDesc = "";
+    const preloadCache = new Map();
     function esc(s) { return (s || "").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
     function trunc(s, n) { s = s || ""; return s.length <= n ? s : s.slice(0, n) + "..."; }
+    function preloadImage(url) {
+      if (!url || preloadCache.has(url)) return;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      preloadCache.set(url, img);
+    }
+    function prefetchNeighbors(idx) {
+      if (!lightboxImgs.length) return;
+      const n = lightboxImgs.length;
+      const next = toFullUrl(lightboxImgs[(idx + 1) % n]);
+      const prev = toFullUrl(lightboxImgs[(idx - 1 + n) % n]);
+      preloadImage(next);
+      preloadImage(prev);
+    }
     function openLightbox(it) {
       const paths = it.image_paths || it.imagePaths;
       lightboxImgs = (Array.isArray(paths) && paths.length) ? paths : (it.image_path ? [it.image_path] : []);
       lightboxIdx = 0;
       lightboxBaseDesc = it.description || "";
-      lightboxImg.src = lightboxImgs.length ? toFullUrl(lightboxImgs[0]) : "";
+      const firstUrl = lightboxImgs.length ? toFullUrl(lightboxImgs[0]) : "";
+      lightboxImg.src = firstUrl;
+      preloadImage(firstUrl);
       lightboxDesc.textContent = (lightboxImgs.length > 1 ? "(" + (lightboxIdx + 1) + "/" + lightboxImgs.length + ") " : "") + lightboxBaseDesc;
       lightboxPrev.style.display = lightboxImgs.length > 1 ? "block" : "none";
       lightboxNext.style.display = lightboxImgs.length > 1 ? "block" : "none";
@@ -108,14 +126,18 @@
         dot.onclick = () => lightboxShow(i);
         lightboxNav.appendChild(dot);
       }
+      prefetchNeighbors(0);
       lightbox.classList.add("show");
     }
     function lightboxShow(i) {
       if (i < 0 || i >= lightboxImgs.length) return;
       lightboxIdx = i;
-      lightboxImg.src = toFullUrl(lightboxImgs[i]);
+      const curUrl = toFullUrl(lightboxImgs[i]);
+      lightboxImg.src = curUrl;
+      preloadImage(curUrl);
       lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i));
       lightboxDesc.textContent = (lightboxImgs.length > 1 ? "(" + (lightboxIdx + 1) + "/" + lightboxImgs.length + ") " : "") + lightboxBaseDesc;
+      prefetchNeighbors(i);
     }
     function toFullUrl(path) { if (!path) return ""; if (path.startsWith("http")) return path; return getApiBase() + (path.startsWith("/") ? path : "/" + path); }
     function getApiBase() { return window.location.origin; }
