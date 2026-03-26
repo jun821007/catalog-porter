@@ -135,52 +135,9 @@ async function scrapePage(url, keyword, opts = {}) {
     await new Promise((r) => setTimeout(r, 4000));
     const kw = (keyword || '').trim();
     if (kw) {
-      try {
-        const finalUrl = page.url();
-        let shopId = (finalUrl.match(/weshop\/(?:store|search)\/([A-Za-z0-9]+)/i) || finalUrl.match(/([A-Z][A-Za-z0-9]{15,})/))?.[1];
-        if (!shopId) {
-          shopId = await page.evaluate(() => {
-            const m = document.documentElement.innerHTML.match(/weshop\/(?:store|search)\/([A-Za-z0-9]+)/i) || document.documentElement.innerHTML.match(/["']([A-Z][A-Za-z0-9]{16,18})["']/);
-            return m ? m[1] : null;
-          });
-        }
-        const isWecatalog = /wecatalog|wsxc|weshop/i.test(finalUrl);
-        if (shopId && isWecatalog) {
-          const base = (finalUrl.match(/^(https?:\/\/[^/]+)/) || [])[1] || 'https://wecatalog.cn';
-          const searchUrl = base + '/weshop/search/' + shopId + '?filterText=' + encodeURIComponent(kw);
-          await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 300000 });
-          await new Promise((r) => setTimeout(r, 5000));
-          searchTriggered = true;
-        }
-        if (!searchTriggered) {
-        const inputSel = await page.evaluate(() => {
-          const sel = ['input[type="search"]','.van-search__field','.van-field__control','input[placeholder*="搜"]','input[placeholder*="搜索"]','input[placeholder*="关键"]','.search input','[class*="search"] input'];
-          for (const q of sel) {
-            const el = document.querySelector(q);
-            if (el && el.offsetParent) return q;
-          }
-          return null;
-        });
-        if (inputSel) {
-          searchTriggered = true;
-          await page.click(inputSel);
-          await page.keyboard.type(kw, { delay: 80 });
-          await page.keyboard.press('Enter');
-          await new Promise((r) => setTimeout(r, 5000));
-          const btnClicked = await page.evaluate(() => {
-            const btns = document.querySelectorAll('button[type="submit"], [class*="search"] button, .van-search__action');
-            for (const btn of btns) {
-              if (btn.offsetParent && /\u641c|\u641c\u7d22|\u67e5|\u786e\u5b9a/i.test(btn.textContent || '')) {
-                btn.click();
-                return true;
-              }
-            }
-            return false;
-          });
-          if (btnClicked) await new Promise((r) => setTimeout(r, 5000));
-        }
-        }
-      } catch (_) {}
+      // Keep crawling the original listing page and apply keyword filter on backend.
+      // Wecatalog search pages often hide goods links, causing deepScrape to collapse to single-image fallback.
+      console.log('[CP:fetch] keyword present, using backend filter only (skip in-page search nav)');
     }
     await autoScroll(page);
     await new Promise((r) => setTimeout(r, 1500));
