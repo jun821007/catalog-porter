@@ -303,37 +303,48 @@ async function scrapePage(url, keyword, opts = {}) {
           await detailPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
           await detailPage.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
 
-          const targets = raw
-            .map((it, idx) => ({ idx, goodsUrl: (it.goodsUrl && it.goodsUrl.startsWith('http')) ? it.goodsUrl : null }))
+          const deepIndices = (kw
+            ? raw
+                .map((it, idx) => ({ it, idx }))
+                .filter((x) => matchesKeyword(x.it.description, (x.it.imageUrls && x.it.imageUrls[0]) || x.it.imageUrl, kw))
+                .map((x) => x.idx)
+            : raw.map((_, idx) => idx));
+          const workIndices = deepIndices.length ? deepIndices : raw.map((_, idx) => idx);
+
+          const targets = workIndices
+            .map((idx) => ({ idx, goodsUrl: (raw[idx].goodsUrl && raw[idx].goodsUrl.startsWith('http')) ? raw[idx].goodsUrl : null }))
             .filter((x) => !!x.goodsUrl);
 
-          console.log('[CP:deepScrape] direct goodsUrl targets=' + targets.length);
+          console.log('[CP:deepScrape] work items=' + workIndices.length + ', direct goodsUrl targets=' + targets.length);
 
           if (targets.length === 0) {
             const selPrimary = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
-            const selSecondary = 'a[href], [onclick], [role="button"], .van-cell, .van-card, .van-grid-item, [class*="item"], [class*="card"]';
             let updated = 0;
-            for (let i = 0; i < raw.length; i++) {
+            for (const idx of workIndices) {
               try {
-                const clickMeta = await page.evaluate((idx, primary, secondary) => {
-                  const p = Array.from(document.querySelectorAll(primary));
-                  const s = Array.from(document.querySelectorAll(secondary)).filter((el) => {
-                    const r = el.getBoundingClientRect();
-                    if (r.width < 40 || r.height < 40) return false;
-                    return !!(el.querySelector && el.querySelector('img'));
+                const imgKey = String((raw[idx].imageUrl || '').split('?')[0] || '');
+                const clickMeta = await page.evaluate((itemIdx, key, primary) => {
+                  const pickSrc = (img) => img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src') || img.src || '';
+                  const norm = (u) => String(u || '').split('?')[0];
+                  const targetImg = Array.from(document.querySelectorAll('img')).find((img) => {
+                    const src = norm(pickSrc(img));
+                    return !!src && (src === key || (key && src.endsWith(key.split('/').pop())));
                   });
-                  const cs = p.length > idx ? p : s;
-                  const el = cs[idx];
-                  if (!el) return { clicked: false, pCount: p.length, sCount: s.length };
+
+                  let el = null;
+                  if (targetImg) {
+                    el = targetImg.closest(primary) || targetImg.closest('a,[onclick],[role="button"]') || targetImg;
+                  }
+
+                  const pCount = document.querySelectorAll(primary).length;
+                  if (!el) return { clicked: false, pCount, by: 'imgKey' };
                   el.scrollIntoView({ block: 'center' });
                   el.click();
-                  return { clicked: true, pCount: p.length, sCount: s.length };
-                }, i, selPrimary, selSecondary);
+                  return { clicked: true, pCount, by: 'imgKey' };
+                }, idx, imgKey, selPrimary);
 
                 if (!clickMeta.clicked) {
-                  if (i < 5 || i % 20 === 0) {
-                    console.log('[CP:deepScrape] fallback-click item ' + i + ' skip clicked=false primary=' + clickMeta.pCount + ' secondary=' + clickMeta.sCount);
-                  }
+                  console.log('[CP:deepScrape] fallback-click item ' + idx + ' skip clicked=false primary=' + clickMeta.pCount + ' by=' + clickMeta.by);
                   continue;
                 }
 
@@ -347,12 +358,12 @@ async function scrapePage(url, keyword, opts = {}) {
                 });
                 const detailImgs = await extractDetailImages(page);
                 if (detailImgs.length >= 2) {
-                  raw[i].imageUrls = detailImgs;
-                  raw[i].imageUrl = detailImgs[0];
+                  raw[idx].imageUrls = detailImgs;
+                  raw[idx].imageUrl = detailImgs[0];
                   updated++;
-                  console.log('[CP:deepScrape] fallback-click item ' + i + ' updated to ' + detailImgs.length + ' images');
-                } else if (i < 5 || i % 20 === 0) {
-                  console.log('[CP:deepScrape] fallback-click item ' + i + ' detailImgs=' + detailImgs.length);
+                  console.log('[CP:deepScrape] fallback-click item ' + idx + ' updated to ' + detailImgs.length + ' images');
+                } else {
+                  console.log('[CP:deepScrape] fallback-click item ' + idx + ' detailImgs=' + detailImgs.length);
                 }
 
                 // Prefer browser back; if no history transition then press escape.
@@ -366,10 +377,10 @@ async function scrapePage(url, keyword, opts = {}) {
                 const after = page.url();
                 if (after !== before && i % 12 === 0) await autoScroll(page);
               } catch (e) {
-                console.log('[CP:deepScrape] fallback-click item ' + i + ' error: ' + e.message);
+                console.log('[CP:deepScrape] fallback-click item ' + idx + ' error: ' + e.message);
               }
             }
-            console.log('[CP:deepScrape] fallback-click updated items=' + updated + '/' + raw.length);
+            console.log('[CP:deepScrape] fallback-click updated items=' + updated + '/' + workIndices.length);
           }
 
           for (const t of targets) {
@@ -406,7 +417,7 @@ async function scrapePage(url, keyword, opts = {}) {
             }
           }
 
-          const missingGoods = raw.length - targets.length;
+          const missingGoods = workIndices.length - targets.length;
           if (missingGoods > 0) {
             console.log('[CP:deepScrape] skipped ' + missingGoods + ' items without goodsUrl; kept list-image fallback');
           }
