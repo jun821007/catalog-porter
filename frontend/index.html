@@ -2,8 +2,13 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Catalog Porter — 抓取入庫</title>
+  <meta name="theme-color" content="#f3f6fb" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Catalog Porter" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -124,6 +129,7 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveToStorage(); });
     window.addEventListener('beforeunload', saveToStorage);
     restoreFromStorage();
+    window.addEventListener('load', () => { setTimeout(() => window.scrollTo(0, 1), 0); });
     document.getElementById('btnFetch').onclick = async () => {
       const url = document.getElementById('url').value.trim();
       const keyword = document.getElementById('keyword').value.trim();

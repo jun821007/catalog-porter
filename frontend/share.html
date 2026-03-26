@@ -2,19 +2,24 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>????</title>
+  <meta name="theme-color" content="#f3f6fb" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Catalog Porter" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
     #lightbox.show { display: flex; }
-    #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
-    #lightbox .desc { max-width: 90vw; margin-top: 0.5rem; text-align: left; font-size: 0.95rem; color: #e2e8f0; }
-    #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.5rem 1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; border: 0; }
+    #lightbox img { max-width: 96vw; max-height: 84vh; object-fit: contain; touch-action: pan-y; }
+    #lightbox .desc { max-width: 92vw; margin-top: 0.5rem; text-align: left; font-size: 0.95rem; color: #e2e8f0; }
+    #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.8rem 1.1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; border: 0; }
     #lightbox .nav-btn:hover { background: rgba(255,255,255,.35); }
-    #lightbox .nav-prev { left: 1rem; }
-    #lightbox .nav-next { right: 1rem; }
-    #lightbox .nav-dots { display: flex; gap: 0.25rem; margin-top: 0.5rem; justify-content: center; }
+    #lightbox .nav-prev { left: 0.6rem; }
+    #lightbox .nav-next { right: 0.6rem; }
+    #lightbox .nav-dots { display: flex; gap: 0.3rem; margin-top: 0.5rem; justify-content: center; }
     #lightbox .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.4); cursor: pointer; }
     #lightbox .nav-dot.active { background: #fff; }
   </style>
@@ -38,6 +43,7 @@
   </div>
 
   <script>
+    window.addEventListener('load', () => { setTimeout(() => window.scrollTo(0, 1), 0); });
     const id = location.pathname.split('/').pop();
     const grid = document.getElementById('grid');
     const lightbox = document.getElementById('lightbox');
@@ -49,6 +55,8 @@
     let lightboxImgs = [];
     let lightboxIdx = 0;
     let lightboxBaseDesc = '';
+    let touchStartX = null;
+    let touchStartY = null;
     const preloadCache = new Map();
 
     function toFullUrl(path) {
@@ -111,7 +119,7 @@
         const paths = (Array.isArray(it.image_paths) && it.image_paths.length) ? it.image_paths : (it.image_path ? [it.image_path] : []);
         const first = paths.length ? toFullUrl(paths[0]) : '';
         const badge = paths.length > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + paths.length + ' imgs</span>' : '';
-        d.innerHTML = '<div class="aspect-square bg-slate-800 relative cursor-pointer share-preview"><img class="w-full h-full object-cover" src="' + first + '" />' + badge + '</div><div class="p-2 text-xs text-slate-300">' + (it.description || '').replace(/</g,'&lt;') + '</div>';
+        d.innerHTML = '<div class="aspect-square bg-slate-800 relative cursor-pointer share-preview"><img class="w-full h-full object-cover" src="' + first + '" />' + badge + '</div><div class="p-2 text-xs text-slate-300">' + (it.description || '').replace(/</g, '&lt;') + '</div>';
         d.querySelector('.share-preview').onclick = () => openLightbox(it);
         grid.appendChild(d);
       });
@@ -127,6 +135,27 @@
       else if (e.key === 'ArrowRight') lightboxShow(lightboxIdx + 1);
       else if (e.key === 'Escape') lightbox.classList.remove('show');
     });
+
+    lightboxImg.addEventListener('touchstart', (e) => {
+      if (!lightbox.classList.contains('show')) return;
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+    }, { passive: true });
+    lightboxImg.addEventListener('touchend', (e) => {
+      if (!lightbox.classList.contains('show')) return;
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t || touchStartX === null) return;
+      const dx = t.clientX - touchStartX;
+      const dy = Math.abs(t.clientY - touchStartY);
+      if (Math.abs(dx) > 40 && dy < 50) {
+        if (dx < 0) lightboxShow(lightboxIdx + 1);
+        else lightboxShow(lightboxIdx - 1);
+      }
+      touchStartX = null;
+      touchStartY = null;
+    }, { passive: true });
   </script>
 </body>
 </html>
