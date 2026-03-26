@@ -2,16 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>我的庫存 | Catalog Porter</title>
-  <meta name="theme-color" content="#f3f6fb" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Catalog Porter" />
-  <meta name="application-name" content="Catalog Porter" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/pwa-icon-180.png" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -37,9 +29,9 @@
     #lightboxClose { color: #fff !important; }
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
     #lightbox.show { display: flex; }
-    #lightbox img { max-width: 96vw; max-height: 84vh; object-fit: contain; touch-action: pan-y; }
+    #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
     #lightbox .desc { max-width: 90vw; margin-top: 0.5rem; text-align: left; font-size: 0.875rem; color: #cbd5e1; }
-    #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.8rem 1.1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; }
+    #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.5rem 1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; }
     #lightbox .nav-btn:hover { background: rgba(255,255,255,.35); }
     #lightbox .nav-prev { left: 1rem; }
     #lightbox .nav-next { right: 1rem; }
@@ -236,29 +228,6 @@
       else if (e.key === "Escape") { lightbox.classList.remove("show"); e.preventDefault(); }
     });
     document.getElementById("btnSearch").onclick = load;
-    let touchStartX = null;
-    let touchStartY = null;
-    lightboxImg.addEventListener("touchstart", (e) => {
-      if (!lightbox.classList.contains("show")) return;
-      const t = e.changedTouches && e.changedTouches[0];
-      if (!t) return;
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
-    }, { passive: true });
-    lightboxImg.addEventListener("touchend", (e) => {
-      if (!lightbox.classList.contains("show")) return;
-      const t = e.changedTouches && e.changedTouches[0];
-      if (!t || touchStartX === null) return;
-      const dx = t.clientX - touchStartX;
-      const dy = Math.abs(t.clientY - touchStartY);
-      if (Math.abs(dx) > 40 && dy < 50) {
-        if (dx < 0) lightboxShow(lightboxIdx + 1);
-        else lightboxShow(lightboxIdx - 1);
-      }
-      touchStartX = null;
-      touchStartY = null;
-    }, { passive: true });
-
     document.getElementById("q").onkeydown = e => { if (e.key === "Enter") load(); };
     document.getElementById("btnShare").onclick = async () => {
       const ids = [...document.querySelectorAll(".pick:checked")].map(c => +c.dataset.id);

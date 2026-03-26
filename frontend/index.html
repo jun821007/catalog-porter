@@ -2,16 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Catalog Porter — 抓取入庫</title>
-  <meta name="theme-color" content="#f3f6fb" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Catalog Porter" />
-  <meta name="application-name" content="Catalog Porter" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/pwa-icon-180.png" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -53,7 +45,10 @@
       <input id="url" type="url" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
       <label for="keyword" class="block text-sm text-slate-400 mb-1">搜尋關鍵字（可留空）</label>
       <input id="keyword" type="text" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="篩選描述含此字" />
-      <p class="text-sm text-slate-300 mb-4">預設為深入相冊模式，會抓取單品全部照片。</p>
+      <label class="flex items-center gap-2 mb-4">
+        <input type="checkbox" id="deepScrape" checked />
+        <span class="text-sm text-slate-300">深入相冊取得全部圖片（較慢）</span>
+      </label>
       <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium">開始抓取</button>
       <span id="status" class="ml-4 text-slate-400"></span>
     </div>
@@ -86,8 +81,11 @@
     function saveToStorage() {
       try {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+          items,
+          checked: [...document.querySelectorAll('.pick:checked')].map(c => +c.dataset.i),
           url: document.getElementById('url').value,
-          keyword: document.getElementById('keyword').value
+          keyword: document.getElementById('keyword').value,
+          status: statusEl.textContent
         }));
       } catch (_) {}
     }
@@ -96,13 +94,19 @@
         const raw = sessionStorage.getItem(STORAGE_KEY);
         if (!raw) return;
         const data = JSON.parse(raw);
+        if (!data.items || !data.items.length) return;
+        items = data.items;
         if (data.url) document.getElementById('url').value = data.url;
         if (data.keyword) document.getElementById('keyword').value = data.keyword || '';
-        // Do not restore previous result grid to avoid stale-item confusion when switching tabs.
-        items = [];
-        grid.innerHTML = '';
-        statusEl.textContent = '';
-        updateSel();
+        statusEl.textContent = data.status || '';
+        renderGrid();
+        if (Array.isArray(data.checked) && data.checked.length) {
+          data.checked.forEach(i => {
+            const cb = grid.querySelector('.pick[data-i="' + i + '"]');
+            if (cb) cb.checked = true;
+          });
+          updateSel();
+        }
       } catch (_) {}
     }
     function renderGrid() {
@@ -120,22 +124,14 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveToStorage(); });
     window.addEventListener('beforeunload', saveToStorage);
     restoreFromStorage();
-    window.addEventListener('load', () => { setTimeout(() => window.scrollTo(0, 1), 0); });
-    function normalizeFetchError(e) {
-      const raw = ((e && e.message) || '').toLowerCase();
-      if (e && e.name === 'AbortError') return '抓取逾時（超過 8 分鐘）。請直接重試。';
-      if (raw.includes('load failed') || raw.includes('failed to fetch') || raw.includes('networkerror')) return '網路連線中斷或伺服器回應超時，請重試（Safari 常顯示 Load failed）。';
-      if (raw.includes('unexpected token') || raw.includes('invalid json')) return '伺服器回傳格式異常，請稍後重試。';
-      return (e && e.message) || '抓取失敗';
-    }
     document.getElementById('btnFetch').onclick = async () => {
       const url = document.getElementById('url').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
       if (!url) { alert('請輸入網址'); return; }
-      statusEl.textContent = '抓取中（深入相冊模式，約 1–4 分鐘）...';
+      statusEl.textContent = document.getElementById('deepScrape').checked ? '抓取中（深入相冊較慢，約 2–5 分鐘）...' : '抓取中（可能需 1–2 分鐘）...';
       grid.innerHTML = '';
       try {
-        const deepScrape = false;
+        const deepScrape = document.getElementById('deepScrape').checked;
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8*60*1000);
         let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }
@@ -150,7 +146,7 @@
         saveToStorage();
       } catch (e) {
         statusEl.textContent = '';
-        alert(normalizeFetchError(e));
+        alert(e.name === 'AbortError' ? '抓取逾時（超過 8 分鐘）。可取消勾選「深入相冊」再試。' : (e.message || '抓取失敗'));
       }
     };
     document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
