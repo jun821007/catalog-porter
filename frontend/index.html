@@ -53,10 +53,7 @@
       <input id="url" type="url" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
       <label for="keyword" class="block text-sm text-slate-400 mb-1">搜尋關鍵字（可留空）</label>
       <input id="keyword" type="text" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="篩選描述含此字" />
-      <label class="flex items-center gap-2 mb-4">
-        <input type="checkbox" id="deepScrape" checked />
-        <span class="text-sm text-slate-300">深入相冊取得全部圖片（較慢）</span>
-      </label>
+      <p class="text-sm text-slate-300 mb-4">預設為深入相冊模式，會抓取單品全部照片。</p>
       <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium">開始抓取</button>
       <span id="status" class="ml-4 text-slate-400"></span>
     </div>
@@ -135,7 +132,7 @@
     window.addEventListener('load', () => { setTimeout(() => window.scrollTo(0, 1), 0); });
     function normalizeFetchError(e) {
       const raw = ((e && e.message) || '').toLowerCase();
-      if (e && e.name === 'AbortError') return '抓取逾時（超過 8 分鐘）。可先取消「深入相冊」測試連線，或重試。';
+      if (e && e.name === 'AbortError') return '抓取逾時（超過 8 分鐘）。請直接重試。';
       if (raw.includes('load failed') || raw.includes('failed to fetch') || raw.includes('networkerror')) return '網路連線中斷或伺服器回應超時，請重試（Safari 常顯示 Load failed）。';
       if (raw.includes('unexpected token') || raw.includes('invalid json')) return '伺服器回傳格式異常，請稍後重試。';
       return (e && e.message) || '抓取失敗';
@@ -144,10 +141,10 @@
       const url = document.getElementById('url').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
       if (!url) { alert('請輸入網址'); return; }
-      statusEl.textContent = document.getElementById('deepScrape').checked ? '抓取中（深入相冊較慢，約 2–5 分鐘）...' : '抓取中（可能需 1–2 分鐘）...';
+      statusEl.textContent = '抓取中（深入相冊模式，約 1–4 分鐘）...';
       grid.innerHTML = '';
       try {
-        const deepScrape = document.getElementById('deepScrape').checked;
+        const deepScrape = true;
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8*60*1000);
         let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }

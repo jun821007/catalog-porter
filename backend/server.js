@@ -323,10 +323,15 @@ async function scrapePage(url, keyword, opts = {}) {
       } else {
         // Fast path: do NOT bounce back to list page per item.
         // Open a dedicated detail page and crawl goodsUrl targets directly.
-        const detailPage = await browser.newPage();
+        const detailConcurrency = 3;
+        const detailPages = [];
         try {
-          await detailPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
-          await detailPage.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+          for (let c = 0; c < detailConcurrency; c++) {
+            const p = await browser.newPage();
+            await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+            await p.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+            detailPages.push(p);
+          }
 
           const workIndices = raw.map((_, idx) => idx);
 
@@ -404,18 +409,18 @@ async function scrapePage(url, keyword, opts = {}) {
             console.log('[CP:deepScrape] fallback-click updated items=' + updated + '/' + workIndices.length);
           }
 
-          for (const t of targets) {
+          async function processTarget(t, detailPage) {
             try {
               let detailImgs = [];
               let lastErr = null;
               for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
-                  await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-                  await new Promise((r) => setTimeout(r, 900));
+                  await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+                  await new Promise((r) => setTimeout(r, 500));
                   await detailPage.evaluate(async () => {
-                    for (let j = 0; j < 8; j++) {
-                      window.scrollBy(0, 480);
-                      await new Promise((r) => setTimeout(r, 120));
+                    for (let j = 0; j < 5; j++) {
+                      window.scrollBy(0, 520);
+                      await new Promise((r) => setTimeout(r, 100));
                     }
                     window.scrollTo(0, 0);
                   });
@@ -440,12 +445,22 @@ async function scrapePage(url, keyword, opts = {}) {
             }
           }
 
+          const queue = targets.slice();
+          const workers = detailPages.map((p) => (async () => {
+            while (queue.length) {
+              const t = queue.shift();
+              if (!t) break;
+              await processTarget(t, p);
+            }
+          })());
+          await Promise.all(workers);
+
           const missingGoods = workIndices.length - targets.length;
           if (missingGoods > 0) {
             console.log('[CP:deepScrape] skipped ' + missingGoods + ' items without goodsUrl; kept list-image fallback');
           }
         } finally {
-          await detailPage.close();
+          for (const p of detailPages) { try { await p.close(); } catch (_) {} }
         }
       }
     }
@@ -471,8 +486,8 @@ app.get('/share/:id', (req, res) => { res.sendFile(path.join(__dirname, '../fron
 app.post('/fetch', async (req, res) => {
   const url = (req.body && req.body.url) || req.query.url;
   const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
-  const deepScrape = !!(req.body && req.body.deepScrape);
-  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=' + deepScrape);
+  const deepScrape = true;
+  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=FORCED_TRUE');
   res.setTimeout(600000);
   try {
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'missing url' });
