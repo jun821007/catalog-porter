@@ -308,6 +308,19 @@ async function scrapePage(url, keyword, opts = {}) {
       }
       return out;
     });
+
+    // short-link guard: if redirected to promo page, do not return unrelated items
+    try {
+      const curHost = (() => { try { return new URL(page.url()).hostname.toLowerCase(); } catch (_) { return ''; } })();
+      const goodsCount = raw.filter((x) => x && x.goodsUrl).length;
+      const looksPromo = raw.length > 0 && raw.length <= 12 && raw.every((x) => !x.goodsUrl);
+      if (/wegooooo\.com$/.test(curHost) && looksPromo && goodsCount === 0) {
+        throw new Error('Short link redirected to promo page. Please paste original wecatalog album URL.');
+      }
+    } catch (e) {
+      if (e && e.message) throw e;
+    }
+
     if (opts.deepScrape && raw.length > 0 && raw.length <= 200) {
       const listUrl = page.url();
       const withGoods = raw.filter((r) => r.goodsUrl).length;
@@ -602,7 +615,7 @@ async function enrichSelectedItemsByGoodsUrl(items) {
 
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
