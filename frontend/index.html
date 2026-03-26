@@ -135,7 +135,7 @@
       statusEl.textContent = '抓取中（深入相冊模式，約 1–4 分鐘）...';
       grid.innerHTML = '';
       try {
-        const deepScrape = true;
+        const deepScrape = false;
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8*60*1000);
         let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }
