@@ -1,0 +1,16 @@
+{
+  "name": "Catalog Porter",
+  "short_name": "Catalog",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#f3f6fb",
+  "icons": [
+    {
+      "src": "/pwa-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

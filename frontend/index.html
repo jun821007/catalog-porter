@@ -9,6 +9,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Catalog Porter" />
+  <meta name="application-name" content="Catalog Porter" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/pwa-icon-180.png" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -130,6 +133,13 @@
     window.addEventListener('beforeunload', saveToStorage);
     restoreFromStorage();
     window.addEventListener('load', () => { setTimeout(() => window.scrollTo(0, 1), 0); });
+    function normalizeFetchError(e) {
+      const raw = ((e && e.message) || '').toLowerCase();
+      if (e && e.name === 'AbortError') return '抓取逾時（超過 8 分鐘）。可先取消「深入相冊」測試連線，或重試。';
+      if (raw.includes('load failed') || raw.includes('failed to fetch') || raw.includes('networkerror')) return '網路連線中斷或伺服器回應超時，請重試（Safari 常顯示 Load failed）。';
+      if (raw.includes('unexpected token') || raw.includes('invalid json')) return '伺服器回傳格式異常，請稍後重試。';
+      return (e && e.message) || '抓取失敗';
+    }
     document.getElementById('btnFetch').onclick = async () => {
       const url = document.getElementById('url').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
@@ -152,7 +162,7 @@
         saveToStorage();
       } catch (e) {
         statusEl.textContent = '';
-        alert(e.name === 'AbortError' ? '抓取逾時（超過 8 分鐘）。可取消勾選「深入相冊」再試。' : (e.message || '抓取失敗'));
+        alert(normalizeFetchError(e));
       }
     };
     document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
