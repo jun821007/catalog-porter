@@ -1,0 +1,8 @@
+﻿const fs = require('fs');
+let s = fs.readFileSync('C:/Users/rsz97/webot/backend/server.js', 'utf8');
+const old = "    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });\r\n    await new Promise((r) => setTimeout(r, 4000));\r\n    await autoScroll(page);";
+const insert = "    const kw = (keyword || '').trim();\r\n    if (kw) {\r\n      try {\r\n        const filled = await page.evaluate((k) => {\r\n          const sel = ['input[type="search"]','input[placeholder*="搜"]','input[placeholder*="搜索"]','input[placeholder*="关键"]','.search input','[class*="search"] input'];\r\n          for (const q of sel) {\r\n            const el = document.querySelector(q);\r\n            if (el && el.offsetParent) {\r\n              el.value = k;\r\n              el.dispatchEvent(new Event('input',{bubbles:true}));\r\n              el.dispatchEvent(new Event('change',{bubbles:true}));\r\n              return true;\r\n            }\r\n          }\r\n          return false;\r\n        }, kw);\r\n        if (filled) await new Promise((r) => setTimeout(r, 5000));\r\n      } catch (_) {}\r\n    }\r\n    ";
+const neu = "    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });\r\n    await new Promise((r) => setTimeout(r, 4000));\r\n" + insert + "await autoScroll(page);";
+s = s.replace(old, neu);
+fs.writeFileSync('C:/Users/rsz97/webot/backend/server.js', s);
+console.log('done');

@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catalog Porter - 抓取入库</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
+    <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
+    <nav class="flex gap-3 text-sm">
+      <a href="/" class="text-amber-300 font-medium">抓取入库</a>
+      <a href="/inventory" class="text-slate-400 hover:text-white">我的库存</a>
+    </nav>
+  </header>
+  <main class="max-w-7xl mx-auto p-4">
+    <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 mb-6">
+      <label class="block text-sm text-slate-400 mb-1">微商相册网址 (wecatalog 等)</label>
+      <input id="url" type="url" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
+      <label class="block text-sm text-slate-400 mb-1">搜寻关键字（可留空）</label>
+      <input id="keyword" type="text" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 mb-4" placeholder="筛选描述含此字" />
+      <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium">开始抓取</button>
+      <span id="status" class="ml-4 text-slate-400"></span>
+    </div>
