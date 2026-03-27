@@ -166,13 +166,67 @@ async function scrapePage(url, keyword, opts = {}) {
     }
     const kw = (keyword || "").trim();
     if (kw) {
-      // Keep crawling the original listing page and apply keyword filter on backend.
-      // Wecatalog search pages often hide goods links, causing deepScrape to collapse to single-image fallback.
-      console.log('[CP:fetch] keyword present, using backend filter only (skip in-page search nav)');
+      // Try in-page keyword search first (closer to what user sees manually).
+      try {
+        const acted = await page.evaluate((k) => {
+          const norm = (s) => String(s || '').toLowerCase();
+          const inputs = Array.from(document.querySelectorAll('input,textarea')).filter((el) => {
+            const p = norm(el.getAttribute('placeholder'));
+            const n = norm(el.getAttribute('name'));
+            const i = norm(el.id);
+            const c = norm(el.className);
+            return p.includes('?') || p.includes('search') || n.includes('search') || i.includes('search') || c.includes('search');
+          });
+          const input = inputs[0] || document.querySelector('input[type="search"]') || document.querySelector('input');
+          if (!input) return false;
+          input.focus();
+          input.value = k;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+
+          const btns = Array.from(document.querySelectorAll('button,[role="button"],.van-icon-search,[class*="search"]'));
+          const searchBtn = btns.find((el) => /(\u641c|search)/i.test((el.innerText || el.textContent || '') + ' ' + (el.className || '')));
+          if (searchBtn && searchBtn.click) {
+            searchBtn.click();
+            return true;
+          }
+
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+          return true;
+        }, kw);
+        if (acted) {
+          await new Promise((r) => setTimeout(r, 1300));
+          searchTriggered = true;
+          console.log('[CP:fetch] keyword search attempted in-page');
+        }
+      } catch (e) {
+        console.log('[CP:fetch] keyword in-page search skipped: ' + e.message);
+      }
     }
-    await autoScroll(page);
-    await new Promise((r) => setTimeout(r, kw ? 700 : 1500));
-    if (!kw) {
+    if (kw) {
+      // Keyword path: do deeper lazy-load scrolling to capture much larger catalog slices.
+      await page.evaluate(async () => {
+        let prev = 0;
+        let same = 0;
+        for (let i = 0; i < 120; i++) {
+          window.scrollBy(0, 760);
+          await new Promise((r) => setTimeout(r, 120));
+          const sh = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+          if (sh === prev) {
+            same++;
+            if (same >= 18) break;
+          } else {
+            same = 0;
+            prev = sh;
+          }
+        }
+        window.scrollTo(0, 0);
+      });
+      await new Promise((r) => setTimeout(r, 600));
+    } else {
+      await autoScroll(page);
+      await new Promise((r) => setTimeout(r, 1500));
       await autoScroll(page);
       await page.evaluate(() => {
         const els = document.querySelectorAll('[class*="goods"],[class*="product"],[class*="item"],[class*="cell"],[class*="card"],.van-grid-item');
@@ -273,11 +327,13 @@ async function scrapePage(url, keyword, opts = {}) {
         containers.forEach((c) => {
           const urls = getImgs(c);
           if (urls.length === 0) return;
-          const key = urls[0].split('?')[0];
+          const desc = getDesc(c);
+          // avoid over-collapsing similar items that share the same cover image
+          const key = urls[0].split('?')[0] + '|' + (desc || '').slice(0, 120);
           if (seen.has(key)) return;
           seen.add(key);
           const goodsUrl = getGoodsUrl(c);
-          out.push({ imageUrls: urls, description: getDesc(c), imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href });
+          out.push({ imageUrls: urls, description: desc, imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href });
         });
       }
       // If DOM cards miss direct links, parse embedded page HTML for goods/detail URLs.
@@ -520,9 +576,23 @@ app.post('/fetch', async (req, res) => {
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
     let hint = '';
     if (kw && items.length === 0) {
-      hint = 'No exact keyword match. Try another keyword or leave blank.';
-    } else if (kw && items.length > 0 && items.length < 20 && inStock.length > items.length) {
-      hint = 'Few exact matches. Refine keyword for precision or clear keyword for full list.';
+      if (inStock.length > 0) {
+        items = inStock.slice(0, Math.min(400, inStock.length));
+        hint = 'No exact match. Showing broader candidates from this album.';
+      } else {
+        hint = 'No exact keyword match. Try another keyword or leave blank.';
+      }
+    } else if (kw && items.length > 0 && items.length < 50 && inStock.length > items.length) {
+      const seen = new Set(items.map((x) => (x.imageUrl || (x.imageUrls && x.imageUrls[0]) || '') + '|' + (x.description || '')));
+      const extras = [];
+      for (const it of inStock) {
+        const key = (it.imageUrl || (it.imageUrls && it.imageUrls[0]) || '') + '|' + (it.description || '');
+        if (seen.has(key)) continue;
+        extras.push(it);
+        if (items.length + extras.length >= 400) break;
+      }
+      items = items.concat(extras);
+      hint = 'Showing exact matches first, then broader album candidates.';
     }
     items.forEach((it, idx) => {
       const n = (it.imageUrls && it.imageUrls.length) || 0;
