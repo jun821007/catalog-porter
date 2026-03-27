@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>我的庫存 | Catalog Porter</title>
+  <title>&#25105;&#30340;&#24235;&#23384;</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -37,6 +37,7 @@
     #lightbox .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.4); cursor: pointer; }
     #lightbox .nav-dot.active { background: #fff; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+    .pickLarge { width: 1.45rem; height: 1.45rem; accent-color: #2563eb; }
   </style>
 </head>
 <body class="text-slate-100 min-h-screen">
@@ -190,7 +191,7 @@
         const badge = imgs > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + imgs + '\u5f35</span>' : "";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
-        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><label class="flex items-start gap-2 mb-2"><input type="checkbox" class="pick mt-1" data-id="' + it.id + '" /><span class="text-xs text-slate-500">Select</span></label><textarea class="descEdit w-full text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300" data-id="' + it.id + '" rows="3">' + esc(it.description || '') + '</textarea><div class="mt-2 flex items-center gap-2"><button type="button" class="btnSaveDesc text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">Save text</button></div></div>';
+        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><textarea class="descEdit w-full text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300" data-id="' + it.id + '" rows="3">' + esc(it.description || '') + '</textarea><div class="mt-2 flex items-center gap-2"><button type="button" class="btnSaveDesc text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
         grid.appendChild(card);
       });
       grid.querySelectorAll(".pick").forEach(cb => cb.onchange = updateShareBtn);
