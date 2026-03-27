@@ -83,4 +83,13 @@ function deleteItem(id) {
   return removed;
 }
 
-module.exports = { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem };
+function updateItemDescription(id, description) {
+  const c = loadCatalog();
+  const item = c.items.find((x) => x.id === Number(id));
+  if (!item) return null;
+  item.description = String(description || '').slice(0, 4000);
+  saveCatalog(c);
+  return item;
+}
+
+module.exports = { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem, updateItemDescription };

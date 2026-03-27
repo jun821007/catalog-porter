@@ -5,7 +5,7 @@ const fs = require('fs');
 const axios = require('axios');
 const puppeteer = require('puppeteer');
 const { matchesKeyword } = require('./keywordMatch');
-const { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem } = require('./db');
+const { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem, updateItemDescription } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const OUT_OF_STOCK = /缺貨|售罄|断货|无货|售完|sold\s*out/i;
@@ -1062,6 +1062,20 @@ app.delete('/api/items/:id', (req, res) => {
       if (fs.existsSync(f)) fs.unlinkSync(f);
     }
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
+app.put('/api/items/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).json({ ok: false, error: 'invalid id' });
+    const description = req.body && req.body.description;
+    if (typeof description !== 'string') return res.status(400).json({ ok: false, error: 'description required' });
+    const updated = updateItemDescription(id, description);
+    if (!updated) return res.status(404).json({ ok: false, error: 'not found' });
+    res.json({ ok: true, item: updated });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }
