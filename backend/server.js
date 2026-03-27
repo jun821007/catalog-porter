@@ -165,6 +165,122 @@ async function scrapePage(url, keyword, opts = {}) {
       throw new Error('Short link redirected to promo page. Please paste original wecatalog album URL.');
     }
     const kw = (keyword || "").trim();
+
+    // Prefer official commodity search API for keyword queries (same endpoint as in-page search list).
+    if (kw) {
+      try {
+        const apiItems = await page.evaluate(async (k) => {
+          const albumId = (window.location.pathname.match(/\/weshop\/(?:store|search)\/([^/?#]+)/) || [])[1] || '';
+          if (!albumId) return [];
+
+          const normalizeImg = (u) => String(u || '').split('?')[0];
+          const out = [];
+          const seen = new Set();
+
+          const postForm = async (payload) => {
+            const body = new URLSearchParams();
+            for (const [key, val] of Object.entries(payload)) {
+              if (Array.isArray(val)) {
+                val.forEach((x) => body.append(key, String(x)));
+              } else {
+                body.append(key, String(val ?? ''));
+              }
+            }
+            const r = await fetch('https://www.wecatalog.cn/commoditysearch/api/v3/search/personal', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'x-wg-language': 'zh',
+                'x-wg-module': 'indsite',
+              },
+              body: body.toString(),
+            });
+            if (!r.ok) return null;
+            return await r.json();
+          };
+
+          const collect = (arr) => {
+            if (!Array.isArray(arr)) return 0;
+            let add = 0;
+            for (const it of arr) {
+              const imgs = (Array.isArray(it.imgsSrc) && it.imgsSrc.length ? it.imgsSrc : (Array.isArray(it.imgs) ? it.imgs.map(normalizeImg) : []))
+                .filter(Boolean);
+              const title = String(it.title || '').replace(/\s+/g, ' ').trim();
+              const firstImg = imgs[0] || '';
+              const key = String(it.selfGoodsId || it.goods_id || it.parent_goods_id || '') + '|' + firstImg + '|' + title.slice(0, 80);
+              if (!firstImg || seen.has(key)) continue;
+              seen.add(key);
+
+              const shop = it.selfShopId || it.parent_shop_id || it.shop_id || '';
+              const gid = it.selfGoodsId || it.goods_id || it.parent_goods_id || '';
+              const goodsUrl = (shop && gid) ? ('https://www.wecatalog.cn/weshop/goods/' + shop + '/' + gid) : undefined;
+              out.push({
+                imageUrls: imgs,
+                imageUrl: firstImg,
+                description: title,
+                goodsUrl,
+                sourceListUrl: window.location.href,
+                sourceIndex: -1,
+              });
+              add++;
+            }
+            return add;
+          };
+
+          let pageNo = 1;
+          let timestamp = '';
+          let requestDataType = '';
+          let stopRounds = 0;
+
+          for (let i = 0; i < 100; i++) {
+            const resp = await postForm({
+              albumId,
+              personalTab: 'all',
+              searchValue: k,
+              sort: '',
+              isDefaultSort: 1,
+              startDate: '',
+              endDate: '',
+              shareType: '',
+              tagGroupId: '',
+              transLang: 'zh',
+              page: pageNo,
+              timestamp,
+              requestDataType,
+            });
+            if (!resp || Number(resp.errcode) !== 0) break;
+
+            const result = resp.result || {};
+            const items = result.items || [];
+            const pagination = result.pagination || {};
+            const added = collect(items);
+            const loadMore = !!pagination.isLoadMore;
+
+            if (added === 0) {
+              stopRounds++;
+            } else {
+              stopRounds = 0;
+            }
+
+            if (!loadMore || stopRounds >= 4 || out.length >= 1200) break;
+            pageNo = Number(pagination.page || pageNo + 1);
+            timestamp = pagination.pageTimestamp || '';
+            requestDataType = pagination.dataFromGoodsNumAndMarkCode ? 'itemName' : '';
+          }
+
+          return out;
+        }, kw);
+
+        if (Array.isArray(apiItems) && apiItems.length > 0) {
+          console.log('[CP:fetch] keyword commoditysearch mode loaded items=' + apiItems.length);
+          return { raw: apiItems, searchTriggered: true };
+        }
+      } catch (e) {
+        console.log('[CP:fetch] keyword commoditysearch mode failed: ' + e.message);
+      }
+    }
+
     if (kw) {
       // Try in-page keyword search first (closer to what user sees manually).
       try {
