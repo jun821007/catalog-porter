@@ -472,7 +472,7 @@ async function scrapePage(url, keyword, opts = {}) {
                 // Prefer browser back; if no history transition then press escape.
                 const before = page.url();
                 try {
-                  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 12000 });
+                  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 8000 });
                 } catch (_) {
                   await page.keyboard.press('Escape');
                 }
@@ -493,7 +493,7 @@ async function scrapePage(url, keyword, opts = {}) {
               for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
                   await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-                  await new Promise((r) => setTimeout(r, 260));
+                  await new Promise((r) => setTimeout(r, 150));
                   await detailPage.evaluate(async () => {
                     for (let j = 0; j < 3; j++) {
                       window.scrollBy(0, 520);
@@ -714,7 +714,7 @@ async function enrichSelectedItemsByGoodsUrl(items) {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           await page.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 22000 });
-          await new Promise((r) => setTimeout(r, 260));
+          await new Promise((r) => setTimeout(r, 150));
           await page.evaluate(async () => {
             for (let j = 0; j < 3; j++) {
               window.scrollBy(0, 520);
@@ -751,8 +751,7 @@ async function enrichSelectedItemsByGoodsUrl(items) {
     for (const [listUrl, group] of byList.entries()) {
       try {
         await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 26000 });
-        await new Promise((r) => setTimeout(r, 420));
-        await autoScroll(page);
+        await new Promise((r) => setTimeout(r, 320));
       } catch (e) {
         console.log('[CP:import] list fallback open failed ' + listUrl + ': ' + e.message);
         continue;
@@ -761,7 +760,7 @@ async function enrichSelectedItemsByGoodsUrl(items) {
       for (const t of group) {
         try {
           const imgKey = String(t.imageUrl.split('?')[0] || '');
-          const clickMeta = await page.evaluate((key, primary) => {
+          const tryClick = async () => await page.evaluate((key, primary) => {
             const pickSrc = (img) => img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src') || img.src || '';
             const norm = (u) => String(u || '').split('?')[0];
             const targetImg = Array.from(document.querySelectorAll('img')).find((img) => {
@@ -781,12 +780,22 @@ async function enrichSelectedItemsByGoodsUrl(items) {
             return { clicked: true, pCount };
           }, imgKey, selPrimary);
 
+          let clickMeta = await tryClick();
+          if (!clickMeta.clicked) {
+            await page.evaluate(() => window.scrollBy(0, window.innerHeight * 1.2));
+            await new Promise((r) => setTimeout(r, 140));
+            clickMeta = await tryClick();
+          }
+          if (!clickMeta.clicked) {
+            await autoScroll(page);
+            clickMeta = await tryClick();
+          }
           if (!clickMeta.clicked) {
             console.log('[CP:import] list fallback skip item ' + t.idx + ' clicked=false primary=' + clickMeta.pCount);
             continue;
           }
 
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 380));
           await page.evaluate(async () => {
             for (let j = 0; j < 3; j++) {
               window.scrollBy(0, 420);
@@ -807,11 +816,11 @@ async function enrichSelectedItemsByGoodsUrl(items) {
           }
 
           try {
-            await page.goBack({ waitUntil: 'domcontentloaded', timeout: 12000 });
+            await page.goBack({ waitUntil: 'domcontentloaded', timeout: 8000 });
           } catch (_) {
             await page.keyboard.press('Escape');
           }
-          await new Promise((r) => setTimeout(r, 260));
+          await new Promise((r) => setTimeout(r, 150));
         } catch (e) {
           console.log('[CP:import] list fallback error item ' + t.idx + ': ' + e.message);
         }
