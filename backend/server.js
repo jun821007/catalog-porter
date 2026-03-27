@@ -156,8 +156,9 @@ async function scrapePage(url, keyword, opts = {}) {
     const page = await browser.newPage();
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
     await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
-    await page.goto(url.trim(), { waitUntil: 'networkidle2', timeout: 300000 });
-    await new Promise((r) => setTimeout(r, 4000));
+    const initialKw = (keyword || '').trim();
+    await page.goto(url.trim(), { waitUntil: initialKw ? 'domcontentloaded' : 'networkidle2', timeout: initialKw ? 120000 : 300000 });
+    await new Promise((r) => setTimeout(r, initialKw ? 1200 : 4000));
     // short-link fast-fail: avoid long waits on promo landing pages
     const hostNow = (() => { try { return new URL(page.url()).hostname.toLowerCase(); } catch (_) { return ''; } })();
     if (/wegooooo\.com$/.test(hostNow)) {
@@ -170,13 +171,15 @@ async function scrapePage(url, keyword, opts = {}) {
       console.log('[CP:fetch] keyword present, using backend filter only (skip in-page search nav)');
     }
     await autoScroll(page);
-    await new Promise((r) => setTimeout(r, 1500));
-    await autoScroll(page);
-    await page.evaluate(() => {
-      const els = document.querySelectorAll('[class*="goods"],[class*="product"],[class*="item"],[class*="cell"],[class*="card"],.van-grid-item');
-      els.forEach((el, i) => { if (i % 2 === 0) el.scrollIntoView({ block: 'center' }); });
-    });
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, kw ? 700 : 1500));
+    if (!kw) {
+      await autoScroll(page);
+      await page.evaluate(() => {
+        const els = document.querySelectorAll('[class*="goods"],[class*="product"],[class*="item"],[class*="cell"],[class*="card"],.van-grid-item');
+        els.forEach((el, i) => { if (i % 2 === 0) el.scrollIntoView({ block: 'center' }); });
+      });
+      await new Promise((r) => setTimeout(r, 2000));
+    }
     const raw = await page.evaluate(() => {
       const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
       function getDesc(el) {
