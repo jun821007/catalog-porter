@@ -170,12 +170,21 @@ async function scrapePage(url, keyword, opts = {}) {
       try {
         const acted = await page.evaluate((k) => {
           const norm = (s) => String(s || '').toLowerCase();
+
+          const triggers = Array.from(document.querySelectorAll('[class*="search"], .van-icon-search, [aria-label*="search"], [role="button"]'));
+          const trigger = triggers.find((el) => {
+            const txt = norm((el.innerText || el.textContent || '') + ' ' + (el.className || '') + ' ' + ((el.getAttribute && el.getAttribute('aria-label')) || ''));
+            return txt.includes('search') || txt.includes('\u641c');
+          });
+          if (trigger && trigger.click) trigger.click();
+
           const inputs = Array.from(document.querySelectorAll('input,textarea')).filter((el) => {
             const p = norm(el.getAttribute('placeholder'));
             const n = norm(el.getAttribute('name'));
             const i = norm(el.id);
             const c = norm(el.className);
-            return p.includes('?') || p.includes('search') || n.includes('search') || i.includes('search') || c.includes('search');
+            const t = norm(el.getAttribute('type'));
+            return t === 'search' || p.includes('search') || p.includes('\u641c') || n.includes('search') || i.includes('search') || c.includes('search');
           });
           const input = inputs[0] || document.querySelector('input[type="search"]') || document.querySelector('input');
           if (!input) return false;
@@ -185,7 +194,10 @@ async function scrapePage(url, keyword, opts = {}) {
           input.dispatchEvent(new Event('change', { bubbles: true }));
 
           const btns = Array.from(document.querySelectorAll('button,[role="button"],.van-icon-search,[class*="search"]'));
-          const searchBtn = btns.find((el) => /(\u641c|search)/i.test((el.innerText || el.textContent || '') + ' ' + (el.className || '')));
+          const searchBtn = btns.find((el) => {
+            const txt = norm((el.innerText || el.textContent || '') + ' ' + (el.className || '') + ' ' + ((el.getAttribute && el.getAttribute('aria-label')) || ''));
+            return txt.includes('search') || txt.includes('\u641c');
+          });
           if (searchBtn && searchBtn.click) {
             searchBtn.click();
             return true;
@@ -237,11 +249,23 @@ async function scrapePage(url, keyword, opts = {}) {
     const raw = await page.evaluate(() => {
       const skipRe = /avatar|logo|icon|1x1|blank|placeholder|spacer|wx.qlogo|headimg/i;
       function getDesc(el) {
-        let t = (el.innerText||'').trim().replace(/\s+/g,' ').slice(0,500);
-        const attrs = ['title','data-title','alt','aria-label'];
-        attrs.forEach(a=>{ const v=(el.getAttribute&&el.getAttribute(a))||''; if(v&&v.length>=2)t+=' '+v; });
-        (el.querySelectorAll&&el.querySelectorAll('[title],[data-title],[alt]')||[]).forEach(x=>{ const v=(x.getAttribute&&(x.getAttribute('title')||x.getAttribute('data-title')||x.getAttribute('alt')))||''; if(v)t+=' '+v; });
-        return (t=t.trim().replace(/\s+/g,' ').slice(0,600)).length>=3 ? t : '';
+        const attrs = ['title','data-title','alt','aria-label','data-name','data-goods-name','goods-name'];
+        let t1 = (el.innerText || '').trim();
+        let t2 = (el.textContent || '').trim();
+        let t = (t1.length >= t2.length ? t1 : t2);
+
+        attrs.forEach((a) => {
+          const v = (el.getAttribute && el.getAttribute(a)) || '';
+          if (v && v.length >= 2) t += ' ' + v;
+        });
+
+        (el.querySelectorAll && el.querySelectorAll('[title],[data-title],[alt],[aria-label],[data-name],[data-goods-name]') || []).forEach((x) => {
+          const v = (x.getAttribute && (x.getAttribute('title') || x.getAttribute('data-title') || x.getAttribute('alt') || x.getAttribute('aria-label') || x.getAttribute('data-name') || x.getAttribute('data-goods-name'))) || '';
+          if (v) t += ' ' + v;
+        });
+
+        t = t.replace(/\s+/g, ' ').trim();
+        return t.length >= 3 ? t.slice(0, 1000) : '';
       }
       function getImgs(container) {
         const urls = []; const seen2 = new Set();
@@ -324,7 +348,7 @@ async function scrapePage(url, keyword, opts = {}) {
       }
       const containers = document.querySelectorAll('.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]');
       if (containers.length > 0) {
-        containers.forEach((c) => {
+        containers.forEach((c, cardIdx) => {
           const urls = getImgs(c);
           if (urls.length === 0) return;
           const desc = getDesc(c);
@@ -333,7 +357,7 @@ async function scrapePage(url, keyword, opts = {}) {
           if (seen.has(key)) return;
           seen.add(key);
           const goodsUrl = getGoodsUrl(c);
-          out.push({ imageUrls: urls, description: desc, imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href, sourceIndex: out.length });
+          out.push({ imageUrls: urls, description: desc, imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href, sourceIndex: cardIdx });
         });
       }
       // If DOM cards miss direct links, parse embedded page HTML for goods/detail URLs.
@@ -367,7 +391,7 @@ async function scrapePage(url, keyword, opts = {}) {
             if (t.length>=5 && (!best || t.length<best.length)) best = t;
             el = el.parentElement;
           }
-          out.push({ imageUrls: [src], description: best, imageUrl: src, sourceListUrl: window.location.href, sourceIndex: out.length });
+          out.push({ imageUrls: [src], description: best, imageUrl: src, sourceListUrl: window.location.href, sourceIndex: -1 });
         });
       }
       return out;
@@ -710,6 +734,17 @@ async function enrichSelectedItemsByGoodsUrl(items) {
             window.scrollTo(0, 0);
           });
           imgs = await extractDetailImages(page);
+          if (imgs.length <= 1) {
+            await new Promise((r) => setTimeout(r, 380));
+            await page.evaluate(async () => {
+              for (let k = 0; k < 7; k++) {
+                window.scrollBy(0, 520);
+                await new Promise((r) => setTimeout(r, 90));
+              }
+              window.scrollTo(0, 0);
+            });
+            imgs = await extractDetailImages(page);
+          }
           const detailDesc = await extractDetailDescription(page);
           if (detailDesc && detailDesc.length >= 20) items[t.idx].description = detailDesc;
           if (imgs.length > 1) break;
@@ -798,7 +833,18 @@ async function enrichSelectedItemsByGoodsUrl(items) {
             window.scrollTo(0, 0);
           });
 
-          const imgs = await extractDetailImages(page);
+          let imgs = await extractDetailImages(page);
+          if (imgs.length <= 1) {
+            await new Promise((r) => setTimeout(r, 380));
+            await page.evaluate(async () => {
+              for (let k = 0; k < 7; k++) {
+                window.scrollBy(0, 520);
+                await new Promise((r) => setTimeout(r, 90));
+              }
+              window.scrollTo(0, 0);
+            });
+            imgs = await extractDetailImages(page);
+          }
           const detailDesc = await extractDetailDescription(page);
           if (detailDesc && detailDesc.length >= 20) items[t.idx].description = detailDesc;
           if (imgs.length > 1) {
