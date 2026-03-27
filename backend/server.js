@@ -163,7 +163,7 @@ async function scrapePage(url, keyword, opts = {}) {
     if (/wegooooo\.com$/.test(hostNow)) {
       throw new Error('Short link redirected to promo page. Please paste original wecatalog album URL.');
     }
-    const kw = (keyword || '').trim();
+    const kw = (keyword || "").trim();
     if (kw) {
       // Keep crawling the original listing page and apply keyword filter on backend.
       // Wecatalog search pages often hide goods links, causing deepScrape to collapse to single-image fallback.
@@ -504,13 +504,15 @@ app.get('/share/:id', (req, res) => { res.sendFile(path.join(__dirname, '../fron
 app.post('/fetch', async (req, res) => {
   const url = (req.body && req.body.url) || req.query.url;
   const keyword = (req.body && req.body.keyword) || req.query.keyword || '';
-  const deepScrape = !!(req.body && req.body.deepScrape);
-  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=' + deepScrape);
+  const reqDeepScrape = !!(req.body && req.body.deepScrape);
+  const kw0 = (keyword || '').trim();
+  const deepScrape = kw0 ? false : reqDeepScrape;
+  console.log('[CP:fetch] POST received url=' + (url ? url.slice(0, 60) + '...' : '(none)') + ' deepScrape=' + deepScrape + ' (requested=' + reqDeepScrape + ', keyword=' + (kw0 ? 'yes' : 'no') + ')');
   res.setTimeout(600000);
   try {
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'missing url' });
     const { raw, searchTriggered } = await scrapePage(url.trim(), keyword, { deepScrape });
-    const kw = (keyword || '').trim();
+    const kw = kw0;
     const inStock = filterItems(raw, '');
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
     let hint = '';
