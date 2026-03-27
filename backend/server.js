@@ -333,7 +333,7 @@ async function scrapePage(url, keyword, opts = {}) {
           if (seen.has(key)) return;
           seen.add(key);
           const goodsUrl = getGoodsUrl(c);
-          out.push({ imageUrls: urls, description: desc, imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href });
+          out.push({ imageUrls: urls, description: desc, imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href, sourceIndex: out.length });
         });
       }
       // If DOM cards miss direct links, parse embedded page HTML for goods/detail URLs.
@@ -367,7 +367,7 @@ async function scrapePage(url, keyword, opts = {}) {
             if (t.length>=5 && (!best || t.length<best.length)) best = t;
             el = el.parentElement;
           }
-          out.push({ imageUrls: [src], description: best, imageUrl: src, sourceListUrl: window.location.href });
+          out.push({ imageUrls: [src], description: best, imageUrl: src, sourceListUrl: window.location.href, sourceIndex: out.length });
         });
       }
       return out;
@@ -576,23 +576,9 @@ app.post('/fetch', async (req, res) => {
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
     let hint = '';
     if (kw && items.length === 0) {
-      if (inStock.length > 0) {
-        items = inStock.slice(0, Math.min(400, inStock.length));
-        hint = 'No exact match. Showing broader candidates from this album.';
-      } else {
-        hint = 'No exact keyword match. Try another keyword or leave blank.';
-      }
+      hint = 'No exact keyword match. Try another keyword or leave blank.';
     } else if (kw && items.length > 0 && items.length < 50 && inStock.length > items.length) {
-      const seen = new Set(items.map((x) => (x.imageUrl || (x.imageUrls && x.imageUrls[0]) || '') + '|' + (x.description || '')));
-      const extras = [];
-      for (const it of inStock) {
-        const key = (it.imageUrl || (it.imageUrls && it.imageUrls[0]) || '') + '|' + (it.description || '');
-        if (seen.has(key)) continue;
-        extras.push(it);
-        if (items.length + extras.length >= 400) break;
-      }
-      items = items.concat(extras);
-      hint = 'Showing exact matches first, then broader album candidates.';
+      hint = 'Showing exact keyword matches only.';
     }
     items.forEach((it, idx) => {
       const n = (it.imageUrls && it.imageUrls.length) || 0;
@@ -687,6 +673,7 @@ async function enrichSelectedItemsByGoodsUrl(items) {
     goodsUrl: (it && typeof it.goodsUrl === 'string' && it.goodsUrl.startsWith('http')) ? it.goodsUrl : '',
     sourceListUrl: (it && typeof it.sourceListUrl === 'string' && it.sourceListUrl.startsWith('http')) ? it.sourceListUrl : '',
     imageUrl: (it && it.imageUrl) ? String(it.imageUrl) : '',
+    sourceIndex: Number.isInteger(it && it.sourceIndex) ? it.sourceIndex : -1,
     currentCount: Array.isArray(it && it.imageUrls) ? it.imageUrls.length : (it && it.imageUrl ? 1 : 0),
   })).filter((x) => x.currentCount <= 1);
 
@@ -760,25 +747,32 @@ async function enrichSelectedItemsByGoodsUrl(items) {
       for (const t of group) {
         try {
           const imgKey = String(t.imageUrl.split('?')[0] || '');
-          const tryClick = async () => await page.evaluate((key, primary) => {
+          const tryClick = async () => await page.evaluate((key, primary, sourceIndex) => {
             const pickSrc = (img) => img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src') || img.src || '';
             const norm = (u) => String(u || '').split('?')[0];
-            const targetImg = Array.from(document.querySelectorAll('img')).find((img) => {
-              const src = norm(pickSrc(img));
-              return !!src && (src === key || (key && src.endsWith(key.split('/').pop())));
-            });
+            const cards = Array.from(document.querySelectorAll(primary));
 
             let el = null;
-            if (targetImg) {
-              el = targetImg.closest(primary) || targetImg.closest('a,[onclick],[role="button"]') || targetImg;
+            if (Number.isInteger(sourceIndex) && sourceIndex >= 0 && sourceIndex < cards.length) {
+              el = cards[sourceIndex];
             }
 
-            const pCount = document.querySelectorAll(primary).length;
+            if (!el) {
+              const targetImg = Array.from(document.querySelectorAll('img')).find((img) => {
+                const src = norm(pickSrc(img));
+                return !!src && (src === key || (key && src.endsWith(key.split('/').pop())));
+              });
+              if (targetImg) {
+                el = targetImg.closest(primary) || targetImg.closest('a,[onclick],[role="button"]') || targetImg;
+              }
+            }
+
+            const pCount = cards.length;
             if (!el) return { clicked: false, pCount };
             el.scrollIntoView({ block: 'center' });
             el.click();
             return { clicked: true, pCount };
-          }, imgKey, selPrimary);
+          }, imgKey, selPrimary, t.sourceIndex);
 
           let clickMeta = await tryClick();
           if (!clickMeta.clicked) {
