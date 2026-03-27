@@ -24,8 +24,6 @@
     .text-slate-400, #countBadge { color: #64748b !important; }
     .text-slate-500 { color: #64748b !important; }
     .text-amber-400 { color: #1e40af !important; }
-    .btnDel { color: #dc2626 !important; }
-    .btnDel:hover { color: #b91c1c !important; }
     #lightboxCloseTop { position: absolute; top: 0.75rem; right: 0.75rem; width: 2.2rem; height: 2.2rem; border: 0; border-radius: 9999px; background: rgba(15, 23, 42, 0.72); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
     #lightbox.show { display: flex; }
@@ -192,7 +190,7 @@
         const badge = imgs > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + imgs + '\u5f35</span>' : "";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
-        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><label class="flex items-start gap-2 mb-2"><input type="checkbox" class="pick mt-1" data-id="' + it.id + '" /><span class="text-xs text-slate-500">Select</span></label><textarea class="descEdit w-full text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300" data-id="' + it.id + '" rows="3">' + esc(it.description || '') + '</textarea><div class="mt-2 flex items-center gap-2"><button type="button" class="btnSaveDesc text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">Save text</button><button type="button" class="btnDel text-xs text-red-400 hover:text-red-300" data-id="' + it.id + '">Delete</button></div></div>';
+        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><label class="flex items-start gap-2 mb-2"><input type="checkbox" class="pick mt-1" data-id="' + it.id + '" /><span class="text-xs text-slate-500">Select</span></label><textarea class="descEdit w-full text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300" data-id="' + it.id + '" rows="3">' + esc(it.description || '') + '</textarea><div class="mt-2 flex items-center gap-2"><button type="button" class="btnSaveDesc text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">Save text</button></div></div>';
         grid.appendChild(card);
       });
       grid.querySelectorAll(".pick").forEach(cb => cb.onchange = updateShareBtn);
@@ -231,17 +229,7 @@
           }
         };
       });
-      grid.querySelectorAll(".btnDel").forEach(btn => {
-        btn.onclick = async (e) => {
-          e.stopPropagation();
-          if (!confirm("確定要刪除此項目？")) return;
-          const id = btn.dataset.id;
-          const r = await fetch("/api/items/" + id, { method: "DELETE" });
-          const j = await r.json();
-          if (j.ok) load(); else alert(j.error || "刪除失敗");
-        };
-      });
-      updateShareBtn();
+            updateShareBtn();
     }
     function updateShareBtn() {
       const n = [...document.querySelectorAll(".pick:checked")].length;
