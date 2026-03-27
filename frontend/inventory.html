@@ -60,6 +60,7 @@
       <button id="btnSelectAll" class="text-slate-400 hover:text-white text-sm underline">全選</button>
       <button id="btnSelectNone" class="text-slate-400 hover:text-white text-sm underline">取消全選</button>
       <span id="shareOut" class="text-sm text-emerald-400 break-all"></span>
+      <button id="btnCopyShare" class="hidden bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">&#35079;&#35069;</button>
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
     <details class="mt-6 text-xs text-slate-500" id="debugPanel">
@@ -176,6 +177,7 @@
         return;
       }
       grid.innerHTML = "";
+      document.getElementById("btnCopyShare").classList.add("hidden");
       if (items.length === 0) {
         const empty = document.createElement("div");
         empty.className = "col-span-full text-center py-12 text-slate-400";
@@ -253,7 +255,17 @@
       const j = await r.json();
       if (!j.ok) { alert(j.error); return; }
       document.getElementById("shareOut").textContent = j.url;
-      try { await navigator.clipboard.writeText(j.url); alert("已複製到剪貼簿"); } catch (_) {}
+      document.getElementById("btnCopyShare").classList.remove("hidden");
+    };
+    document.getElementById("btnCopyShare").onclick = async () => {
+      const url = document.getElementById("shareOut").textContent.trim();
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("\u5df2\u8907\u88fd");
+      } catch (_) {
+        alert("\u8907\u88fd\u5931\u6557\uff0c\u8acb\u624b\u52d5\u8907\u88fd\u7db2\u5740");
+      }
     };
     document.getElementById("btnSelectAll").onclick = () => { grid.querySelectorAll(".pick").forEach(c => c.checked = true); updateShareBtn(); };
     document.getElementById("btnSelectNone").onclick = () => { grid.querySelectorAll(".pick").forEach(c => c.checked = false); updateShareBtn(); };
