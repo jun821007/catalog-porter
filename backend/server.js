@@ -4,11 +4,24 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const puppeteer = require('puppeteer');
+const OpenCC = require('opencc-js');
 const { matchesKeyword } = require('./keywordMatch');
 const { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem, updateItemDescription } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const OUT_OF_STOCK = /缺貨|售罄|断货|无货|售完|sold\s*out/i;
+
+const cnToTw = OpenCC.Converter({ from: 'cn', to: 'tw' });
+function toTraditionalChinese(text) {
+  const raw = String(text || '');
+  if (!raw) return '';
+  try {
+    return cnToTw(raw);
+  } catch (_) {
+    return raw;
+  }
+}
+
 
 async function autoScroll(page) {
   // Scroll within scrollable containers (van-tab__pane, etc) before main scroll
@@ -1016,7 +1029,7 @@ app.post('/import', async (req, res) => {
         return url;
       });
       if (!imageUrls.length) continue;
-      const description = (it.description || '').slice(0, 4000);
+      const description = toTraditionalChinese(it.description).slice(0, 4000);
       const imagePath = '/proxy?url=' + encodeURIComponent(imageUrls[0]);
       const image_paths = imageUrls.map((u) => '/proxy?url=' + encodeURIComponent(u));
       console.log('[CP:import] item image_paths count=', image_paths.length);
@@ -1071,8 +1084,9 @@ app.put('/api/items/:id', (req, res) => {
   try {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) return res.status(400).json({ ok: false, error: 'invalid id' });
-    const description = req.body && req.body.description;
-    if (typeof description !== 'string') return res.status(400).json({ ok: false, error: 'description required' });
+    const rawDescription = req.body && req.body.description;
+    if (typeof rawDescription !== 'string') return res.status(400).json({ ok: false, error: 'description required' });
+    const description = toTraditionalChinese(rawDescription);
     const updated = updateItemDescription(id, description);
     if (!updated) return res.status(404).json({ ok: false, error: 'not found' });
     res.json({ ok: true, item: updated });

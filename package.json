@@ -7,11 +7,14 @@
     "dev": "node backend/server.js",
     "dev:3001": "node -e \"process.env.PORT=3001;require('./backend/server.js')\""
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "opencc-js": "^1.0.5",
     "puppeteer": "^24.2.0"
   }
 }
