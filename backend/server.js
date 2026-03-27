@@ -274,7 +274,7 @@ async function scrapePage(url, keyword, opts = {}) {
           if (seen.has(key)) return;
           seen.add(key);
           const goodsUrl = getGoodsUrl(c);
-          out.push({ imageUrls: urls, description: getDesc(c), imageUrl: urls[0], goodsUrl: goodsUrl || undefined });
+          out.push({ imageUrls: urls, description: getDesc(c), imageUrl: urls[0], goodsUrl: goodsUrl || undefined, sourceListUrl: window.location.href });
         });
       }
       // If DOM cards miss direct links, parse embedded page HTML for goods/detail URLs.
@@ -308,7 +308,7 @@ async function scrapePage(url, keyword, opts = {}) {
             if (t.length>=5 && (!best || t.length<best.length)) best = t;
             el = el.parentElement;
           }
-          out.push({ imageUrls: [src], description: best, imageUrl: src });
+          out.push({ imageUrls: [src], description: best, imageUrl: src, sourceListUrl: window.location.href });
         });
       }
       return out;
@@ -515,9 +515,20 @@ app.post('/fetch', async (req, res) => {
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
     let hint = '';
     if (kw && items.length === 0) {
-      hint = 'No exact keyword match. Try another keyword or leave blank.';
-    } else if (kw && items.length > 0 && items.length < 8 && inStock.length > items.length) {
-      hint = 'Few exact matches. Try a shorter keyword for broader results.';
+      // If exact keyword match is empty, return broader in-stock candidates so users still see searchable results.
+      items = inStock.slice(0, 120);
+      hint = 'No exact keyword match. Showing broader in-stock candidates.';
+    } else if (kw && items.length > 0 && items.length < 20 && inStock.length > items.length) {
+      const seen = new Set(items.map((x) => (x.imageUrl || (x.imageUrls && x.imageUrls[0]) || '') + '|' + (x.description || '')));
+      const extras = [];
+      for (const it of inStock) {
+        const key = (it.imageUrl || (it.imageUrls && it.imageUrls[0]) || '') + '|' + (it.description || '');
+        if (seen.has(key)) continue;
+        extras.push(it);
+        if (items.length + extras.length >= 120) break;
+      }
+      items = items.concat(extras);
+      hint = 'Few exact matches. Showing exact matches first, then broader candidates.';
     }
     items.forEach((it, idx) => {
       const n = (it.imageUrls && it.imageUrls.length) || 0;
@@ -607,16 +618,19 @@ function extractUrlFromProxy(proxyPath) {
 
 
 async function enrichSelectedItemsByGoodsUrl(items) {
-  const targets = items
-    .map((it, idx) => ({
-      idx,
-      goodsUrl: (it && typeof it.goodsUrl === 'string' && it.goodsUrl.startsWith('http')) ? it.goodsUrl : '',
-      currentCount: Array.isArray(it && it.imageUrls) ? it.imageUrls.length : (it && it.imageUrl ? 1 : 0),
-    }))
-    .filter((x) => x.goodsUrl && x.currentCount <= 1);
+  const candidates = items.map((it, idx) => ({
+    idx,
+    goodsUrl: (it && typeof it.goodsUrl === 'string' && it.goodsUrl.startsWith('http')) ? it.goodsUrl : '',
+    sourceListUrl: (it && typeof it.sourceListUrl === 'string' && it.sourceListUrl.startsWith('http')) ? it.sourceListUrl : '',
+    imageUrl: (it && it.imageUrl) ? String(it.imageUrl) : '',
+    currentCount: Array.isArray(it && it.imageUrls) ? it.imageUrls.length : (it && it.imageUrl ? 1 : 0),
+  })).filter((x) => x.currentCount <= 1);
 
-  if (!targets.length) return;
-  console.log('[CP:import] enriching selected items by goodsUrl count=' + targets.length);
+  const targetsByGoods = candidates.filter((x) => !!x.goodsUrl);
+  const targetsByList = candidates.filter((x) => !x.goodsUrl && !!x.sourceListUrl && !!x.imageUrl);
+
+  if (!targetsByGoods.length && !targetsByList.length) return;
+  console.log('[CP:import] enrich plan goods=' + targetsByGoods.length + ' listFallback=' + targetsByList.length);
 
   const browser = await puppeteer.launch({
     headless: true,
@@ -629,7 +643,8 @@ async function enrichSelectedItemsByGoodsUrl(items) {
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
     await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
 
-    for (const t of targets) {
+    // Pass 1: direct goods URL enrichment
+    for (const t of targetsByGoods) {
       let imgs = [];
       let lastErr = null;
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -655,9 +670,87 @@ async function enrichSelectedItemsByGoodsUrl(items) {
       if (imgs.length > 1) {
         items[t.idx].imageUrls = imgs;
         items[t.idx].imageUrl = imgs[0];
-        console.log('[CP:import] enriched item ' + t.idx + ' images=' + imgs.length);
+        console.log('[CP:import] enriched item ' + t.idx + ' by goodsUrl images=' + imgs.length);
       } else {
-        console.log('[CP:import] enrich miss item ' + t.idx + (lastErr ? ': ' + lastErr.message : ''));
+        console.log('[CP:import] enrich miss item ' + t.idx + ' by goodsUrl' + (lastErr ? ': ' + lastErr.message : ''));
+      }
+    }
+
+    // Pass 2: fallback by returning to list page and clicking matching card image
+    const byList = new Map();
+    for (const t of targetsByList) {
+      if (!byList.has(t.sourceListUrl)) byList.set(t.sourceListUrl, []);
+      byList.get(t.sourceListUrl).push(t);
+    }
+
+    const selPrimary = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
+    for (const [listUrl, group] of byList.entries()) {
+      try {
+        await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await new Promise((r) => setTimeout(r, 900));
+        await autoScroll(page);
+      } catch (e) {
+        console.log('[CP:import] list fallback open failed ' + listUrl + ': ' + e.message);
+        continue;
+      }
+
+      for (const t of group) {
+        try {
+          const imgKey = String(t.imageUrl.split('?')[0] || '');
+          const clickMeta = await page.evaluate((key, primary) => {
+            const pickSrc = (img) => img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src') || img.src || '';
+            const norm = (u) => String(u || '').split('?')[0];
+            const targetImg = Array.from(document.querySelectorAll('img')).find((img) => {
+              const src = norm(pickSrc(img));
+              return !!src && (src === key || (key && src.endsWith(key.split('/').pop())));
+            });
+
+            let el = null;
+            if (targetImg) {
+              el = targetImg.closest(primary) || targetImg.closest('a,[onclick],[role="button"]') || targetImg;
+            }
+
+            const pCount = document.querySelectorAll(primary).length;
+            if (!el) return { clicked: false, pCount };
+            el.scrollIntoView({ block: 'center' });
+            el.click();
+            return { clicked: true, pCount };
+          }, imgKey, selPrimary);
+
+          if (!clickMeta.clicked) {
+            console.log('[CP:import] list fallback skip item ' + t.idx + ' clicked=false primary=' + clickMeta.pCount);
+            continue;
+          }
+
+          await new Promise((r) => setTimeout(r, 1200));
+          await page.evaluate(async () => {
+            for (let j = 0; j < 5; j++) {
+              window.scrollBy(0, 420);
+              await new Promise((r) => setTimeout(r, 100));
+            }
+            window.scrollTo(0, 0);
+          });
+
+          const imgs = await extractDetailImages(page);
+          const detailDesc = await extractDetailDescription(page);
+          if (detailDesc && detailDesc.length >= 20) items[t.idx].description = detailDesc;
+          if (imgs.length > 1) {
+            items[t.idx].imageUrls = imgs;
+            items[t.idx].imageUrl = imgs[0];
+            console.log('[CP:import] enriched item ' + t.idx + ' by listFallback images=' + imgs.length);
+          } else {
+            console.log('[CP:import] list fallback no detail images for item ' + t.idx);
+          }
+
+          try {
+            await page.goBack({ waitUntil: 'domcontentloaded', timeout: 12000 });
+          } catch (_) {
+            await page.keyboard.press('Escape');
+          }
+          await new Promise((r) => setTimeout(r, 500));
+        } catch (e) {
+          console.log('[CP:import] list fallback error item ' + t.idx + ': ' + e.message);
+        }
       }
     }
   } finally {
