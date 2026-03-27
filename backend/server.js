@@ -158,6 +158,11 @@ async function scrapePage(url, keyword, opts = {}) {
     await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
     await page.goto(url.trim(), { waitUntil: 'networkidle2', timeout: 300000 });
     await new Promise((r) => setTimeout(r, 4000));
+    // short-link fast-fail: avoid long waits on promo landing pages
+    const hostNow = (() => { try { return new URL(page.url()).hostname.toLowerCase(); } catch (_) { return ''; } })();
+    if (/wegooooo\.com$/.test(hostNow)) {
+      throw new Error('Short link redirected to promo page. Please paste original wecatalog album URL.');
+    }
     const kw = (keyword || '').trim();
     if (kw) {
       // Keep crawling the original listing page and apply keyword filter on backend.

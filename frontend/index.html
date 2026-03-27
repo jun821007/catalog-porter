@@ -131,9 +131,9 @@
       statusEl.textContent = document.getElementById('deepScrape').checked ? '抓取中（深入相冊較慢，約 2–5 分鐘）...' : '抓取中（可能需 1–2 分鐘）...';
       grid.innerHTML = '';
       try {
-        const deepScrape = document.getElementById('deepScrape').checked;
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), deepScrape ? 12*60*1000 : 8*60*1000);
+        const timeoutMs = keyword ? 2*60*1000 : (deepScrape ? 12*60*1000 : 8*60*1000);
+        const t = setTimeout(() => ctrl.abort(), timeoutMs);
         let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }
         
         const j = await r.json();
