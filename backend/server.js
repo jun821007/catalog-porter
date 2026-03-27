@@ -437,11 +437,11 @@ async function scrapePage(url, keyword, opts = {}) {
               for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
                   await detailPage.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-                  await new Promise((r) => setTimeout(r, 500));
+                  await new Promise((r) => setTimeout(r, 260));
                   await detailPage.evaluate(async () => {
-                    for (let j = 0; j < 5; j++) {
+                    for (let j = 0; j < 3; j++) {
                       window.scrollBy(0, 520);
-                      await new Promise((r) => setTimeout(r, 100));
+                      await new Promise((r) => setTimeout(r, 70));
                     }
                     window.scrollTo(0, 0);
                   });
@@ -520,20 +520,9 @@ app.post('/fetch', async (req, res) => {
     let items = kw ? (searchTriggered ? inStock : filterItems(raw, keyword)) : inStock;
     let hint = '';
     if (kw && items.length === 0) {
-      // If exact keyword match is empty, return broader in-stock candidates so users still see searchable results.
-      items = inStock.slice(0, 120);
-      hint = 'No exact keyword match. Showing broader in-stock candidates.';
+      hint = 'No exact keyword match. Try another keyword or leave blank.';
     } else if (kw && items.length > 0 && items.length < 20 && inStock.length > items.length) {
-      const seen = new Set(items.map((x) => (x.imageUrl || (x.imageUrls && x.imageUrls[0]) || '') + '|' + (x.description || '')));
-      const extras = [];
-      for (const it of inStock) {
-        const key = (it.imageUrl || (it.imageUrls && it.imageUrls[0]) || '') + '|' + (it.description || '');
-        if (seen.has(key)) continue;
-        extras.push(it);
-        if (items.length + extras.length >= 120) break;
-      }
-      items = items.concat(extras);
-      hint = 'Few exact matches. Showing exact matches first, then broader candidates.';
+      hint = 'Few exact matches. Refine keyword for precision or clear keyword for full list.';
     }
     items.forEach((it, idx) => {
       const n = (it.imageUrls && it.imageUrls.length) || 0;
@@ -654,12 +643,12 @@ async function enrichSelectedItemsByGoodsUrl(items) {
       let lastErr = null;
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          await page.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-          await new Promise((r) => setTimeout(r, 450));
+          await page.goto(t.goodsUrl, { waitUntil: 'domcontentloaded', timeout: 22000 });
+          await new Promise((r) => setTimeout(r, 260));
           await page.evaluate(async () => {
-            for (let j = 0; j < 5; j++) {
+            for (let j = 0; j < 3; j++) {
               window.scrollBy(0, 520);
-              await new Promise((r) => setTimeout(r, 90));
+              await new Promise((r) => setTimeout(r, 70));
             }
             window.scrollTo(0, 0);
           });
@@ -691,8 +680,8 @@ async function enrichSelectedItemsByGoodsUrl(items) {
     const selPrimary = '.van-grid-item,[class*="goods-item"],[class*="product"],[class*="goods"],[class*="item"],[class*="cell"],[class*="card"]';
     for (const [listUrl, group] of byList.entries()) {
       try {
-        await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        await new Promise((r) => setTimeout(r, 900));
+        await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 26000 });
+        await new Promise((r) => setTimeout(r, 420));
         await autoScroll(page);
       } catch (e) {
         console.log('[CP:import] list fallback open failed ' + listUrl + ': ' + e.message);
@@ -727,11 +716,11 @@ async function enrichSelectedItemsByGoodsUrl(items) {
             continue;
           }
 
-          await new Promise((r) => setTimeout(r, 1200));
+          await new Promise((r) => setTimeout(r, 600));
           await page.evaluate(async () => {
-            for (let j = 0; j < 5; j++) {
+            for (let j = 0; j < 3; j++) {
               window.scrollBy(0, 420);
-              await new Promise((r) => setTimeout(r, 100));
+              await new Promise((r) => setTimeout(r, 70));
             }
             window.scrollTo(0, 0);
           });
@@ -752,7 +741,7 @@ async function enrichSelectedItemsByGoodsUrl(items) {
           } catch (_) {
             await page.keyboard.press('Escape');
           }
-          await new Promise((r) => setTimeout(r, 500));
+          await new Promise((r) => setTimeout(r, 260));
         } catch (e) {
           console.log('[CP:import] list fallback error item ' + t.idx + ': ' + e.message);
         }
