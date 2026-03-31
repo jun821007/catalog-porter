@@ -22,6 +22,20 @@ function toTraditionalChinese(text) {
   }
 }
 
+/** 移除批發價標記（如 p400、P411） */
+function stripWholesalePriceMarkers(text) {
+  let s = String(text || '');
+  if (!s) return '';
+  s = s.replace(/\b[pP]\d+\b/g, '');
+  s = s.replace(/[ \t]{2,}/g, ' ');
+  s = s.replace(/\n{3,}/g, '\n\n');
+  return s.trim();
+}
+
+function normalizeDescription(text) {
+  return stripWholesalePriceMarkers(toTraditionalChinese(text)).slice(0, 4000);
+}
+
 
 async function autoScroll(page) {
   // Scroll within scrollable containers (van-tab__pane, etc) before main scroll
@@ -1029,7 +1043,7 @@ app.post('/import', async (req, res) => {
         return url;
       });
       if (!imageUrls.length) continue;
-      const description = toTraditionalChinese(it.description).slice(0, 4000);
+      const description = normalizeDescription(it.description);
       const imagePath = '/proxy?url=' + encodeURIComponent(imageUrls[0]);
       const image_paths = imageUrls.map((u) => '/proxy?url=' + encodeURIComponent(u));
       console.log('[CP:import] item image_paths count=', image_paths.length);
@@ -1086,7 +1100,7 @@ app.put('/api/items/:id', (req, res) => {
     if (Number.isNaN(id)) return res.status(400).json({ ok: false, error: 'invalid id' });
     const rawDescription = req.body && req.body.description;
     if (typeof rawDescription !== 'string') return res.status(400).json({ ok: false, error: 'description required' });
-    const description = toTraditionalChinese(rawDescription);
+    const description = normalizeDescription(rawDescription);
     const updated = updateItemDescription(id, description);
     if (!updated) return res.status(404).json({ ok: false, error: 'not found' });
     res.json({ ok: true, item: updated });

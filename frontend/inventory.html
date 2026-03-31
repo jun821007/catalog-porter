@@ -38,6 +38,11 @@
     #lightbox .nav-dot.active { background: #fff; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
     .pickLarge { width: 1.45rem; height: 1.45rem; accent-color: #2563eb; }
+    #descEditModal { display: none; position: fixed; inset: 0; z-index: 60; align-items: center; justify-content: center; padding: 1rem; }
+    #descEditModal.show { display: flex; }
+    #descEditBackdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+    #descEditPanel { position: relative; z-index: 1; width: 100%; max-width: 32rem; max-height: 90vh; display: flex; flex-direction: column; }
+    .descPreview:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
   </style>
 </head>
 <body class="text-slate-100 min-h-screen">
@@ -78,6 +83,17 @@
       <div id="lightboxDesc" class="desc"></div>
     </div>
   </div>
+  <div id="descEditModal" aria-modal="true" role="dialog" aria-labelledby="descEditTitle">
+    <div id="descEditBackdrop"></div>
+    <div id="descEditPanel" class="bg-slate-900 border border-slate-600 rounded-lg shadow-xl p-4">
+      <div id="descEditTitle" class="text-sm text-slate-300 mb-2">&#32232;&#36655;&#25551;&#36848;</div>
+      <textarea id="descEditTa" class="w-full min-h-[220px] bg-slate-800 border border-slate-600 rounded p-2 text-slate-200 text-sm" autocomplete="off"></textarea>
+      <div class="flex gap-2 mt-3 justify-end flex-shrink-0">
+        <button type="button" id="descEditCancel" class="px-3 py-1.5 rounded bg-slate-700 text-slate-200 text-sm">&#21462;&#28040;</button>
+        <button type="button" id="descEditSave" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm">&#20786;&#23384;</button>
+      </div>
+    </div>
+  </div>
   <script>
     const grid = document.getElementById("grid");
     const lightbox = document.getElementById("lightbox");
@@ -90,6 +106,7 @@
     let lightboxImgs = [];
     let lightboxIdx = 0;
     let lightboxBaseDesc = "";
+    let descEditId = null;
     const preloadCache = new Map();
     function esc(s) { return (s || "").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
     function trunc(s, n) { s = s || ""; return s.length <= n ? s : s.slice(0, n) + "..."; }
@@ -193,8 +210,10 @@
         const badge = imgs > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + imgs + '\u5f35</span>' : "";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
-        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><textarea class="descEdit w-full text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300" data-id="' + it.id + '" rows="3">' + esc(it.description || '') + '</textarea><div class="mt-2 flex w-full items-center justify-between"><button type="button" class="btnSaveDesc text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
+        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center justify-between"><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
         grid.appendChild(card);
+        const prevEl = card.querySelector(".descPreview");
+        if (prevEl) prevEl.textContent = it.description || "";
       });
       grid.querySelectorAll(".pick").forEach(cb => cb.onchange = updateShareBtn);
       grid.querySelectorAll(".img-preview").forEach(el => {
@@ -203,36 +222,52 @@
           if (it) openLightbox(it);
         };
       });
-      grid.querySelectorAll(".btnSaveDesc").forEach(btn => {
-        btn.onclick = async () => {
-          const id = btn.dataset.id;
-          const ta = grid.querySelector('.descEdit[data-id="' + id + '"]');
-          if (!ta) return;
-          const description = ta.value;
-          btn.disabled = true;
-          const oldText = btn.textContent;
-          btn.textContent = 'Saving...';
-          try {
-            const r = await fetch('/api/items/' + id, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ description })
-            });
-            const j = await r.json();
-            if (!j.ok) throw new Error(j.error || 'Save failed');
-            const row = items.find((x) => x.id === Number(id));
-            if (row) row.description = description;
-            btn.textContent = 'Saved';
-            setTimeout(() => { btn.textContent = oldText; }, 900);
-          } catch (e) {
-            alert(e.message || 'Save failed');
-            btn.textContent = oldText;
-          } finally {
-            btn.disabled = false;
-          }
+      function openDescEditModal(id) {
+        descEditId = Number(id);
+        const it = items.find((i) => i.id === descEditId);
+        document.getElementById("descEditTa").value = it ? (it.description || "") : "";
+        document.getElementById("descEditModal").classList.add("show");
+        setTimeout(() => document.getElementById("descEditTa").focus(), 50);
+      }
+      function closeDescEditModal() {
+        descEditId = null;
+        document.getElementById("descEditModal").classList.remove("show");
+      }
+      grid.querySelectorAll(".btnOpenEdit").forEach((btn) => {
+        btn.onclick = (e) => { e.stopPropagation(); openDescEditModal(btn.dataset.id); };
+      });
+      grid.querySelectorAll(".descPreview").forEach((el) => {
+        el.onclick = (e) => { e.stopPropagation(); openDescEditModal(el.dataset.id); };
+        el.onkeydown = (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDescEditModal(el.dataset.id); }
         };
       });
-            updateShareBtn();
+      document.getElementById("descEditCancel").onclick = closeDescEditModal;
+      document.getElementById("descEditBackdrop").onclick = closeDescEditModal;
+      document.getElementById("descEditSave").onclick = async () => {
+        if (descEditId == null) return;
+        const description = document.getElementById("descEditTa").value;
+        const btn = document.getElementById("descEditSave");
+        btn.disabled = true;
+        try {
+          const r = await fetch("/api/items/" + descEditId, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description })
+          });
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || "Save failed");
+          const row = items.find((x) => x.id === descEditId);
+          if (row && j.item) row.description = j.item.description;
+          closeDescEditModal();
+          load();
+        } catch (e) {
+          alert(e.message || "Save failed");
+        } finally {
+          btn.disabled = false;
+        }
+      };
+      updateShareBtn();
     }
     function updateShareBtn() {
       const n = [...document.querySelectorAll(".pick:checked")].length;
@@ -242,6 +277,15 @@
     lightboxPrev.onclick = () => lightboxShow(lightboxIdx - 1);
     lightboxNext.onclick = () => lightboxShow(lightboxIdx + 1);
     document.addEventListener("keydown", (e) => {
+      const dm = document.getElementById("descEditModal");
+      if (dm && dm.classList.contains("show")) {
+        if (e.key === "Escape") {
+          dm.classList.remove("show");
+          descEditId = null;
+          e.preventDefault();
+          return;
+        }
+      }
       if (!lightbox.classList.contains("show")) return;
       if (e.key === "ArrowLeft") { lightboxShow(lightboxIdx - 1); e.preventDefault(); }
       else if (e.key === "ArrowRight") { lightboxShow(lightboxIdx + 1); e.preventDefault(); }
