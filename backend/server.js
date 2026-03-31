@@ -4,38 +4,12 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const puppeteer = require('puppeteer');
-const OpenCC = require('opencc-js');
 const { matchesKeyword } = require('./keywordMatch');
+const { normalizeDescription } = require('./textNormalize');
 const { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem, updateItemDescription } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const OUT_OF_STOCK = /缺貨|售罄|断货|无货|售完|sold\s*out/i;
-
-const cnToTw = OpenCC.Converter({ from: 'cn', to: 'tw' });
-function toTraditionalChinese(text) {
-  const raw = String(text || '');
-  if (!raw) return '';
-  try {
-    return cnToTw(raw);
-  } catch (_) {
-    return raw;
-  }
-}
-
-/** 移除批發價標記（如 p400、P411） */
-function stripWholesalePriceMarkers(text) {
-  let s = String(text || '');
-  if (!s) return '';
-  s = s.replace(/\b[pP]\d+\b/g, '');
-  s = s.replace(/[ \t]{2,}/g, ' ');
-  s = s.replace(/\n{3,}/g, '\n\n');
-  return s.trim();
-}
-
-function normalizeDescription(text) {
-  return stripWholesalePriceMarkers(toTraditionalChinese(text)).slice(0, 4000);
-}
-
 
 async function autoScroll(page) {
   // Scroll within scrollable containers (van-tab__pane, etc) before main scroll
@@ -1019,13 +993,18 @@ app.post('/import', async (req, res) => {
     const items = req.body && req.body.items;
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'items required' });
     console.log('[CP:import] received ' + items.length + ' items');
+    const skipEnrich = !!(req.body && req.body.skipEnrich);
     items.forEach((it, idx) => {
       const hasUrls = !!(it.imageUrls && Array.isArray(it.imageUrls));
       const n = hasUrls ? it.imageUrls.length : 0;
       const hasUrl = !!it.imageUrl;
       console.log('[CP:import] item[' + idx + '] imageUrls=' + (hasUrls ? n : 'MISSING') + ' imageUrl=' + (hasUrl ? 'yes' : 'no') + ' keys=' + Object.keys(it).join(','));
     });
-    await enrichSelectedItemsByGoodsUrl(items);
+    if (!skipEnrich) {
+      await enrichSelectedItemsByGoodsUrl(items);
+    } else {
+      console.log('[CP:import] skipEnrich=true, 略過瀏覽器深化');
+    }
     const saved = [];
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);

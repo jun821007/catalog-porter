@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
-    "dev:3001": "node -e \"process.env.PORT=3001;require('./backend/server.js')\""
+    "dev:3001": "node -e \"process.env.PORT=3001;require('./backend/server.js')\"",
+    "normalize-descriptions": "node backend/scripts/batch-normalize-descriptions.js"
   },
   "engines": {
     "node": ">=20"
