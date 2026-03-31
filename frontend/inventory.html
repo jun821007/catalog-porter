@@ -58,6 +58,11 @@
       <label for="q" class="sr-only">搜尋描述</label>
       <input id="q" type="search" class="flex-1 min-w-[200px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" placeholder="搜尋描述..." aria-label="搜尋描述" />
       <button id="btnSearch" class="bg-slate-700 px-4 py-2 rounded-lg">搜尋</button>
+      <label for="catFilter" class="sr-only">分類</label>
+      <select id="catFilter" class="min-w-[160px] bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200">
+        <option value="">全部分類</option>
+        <option value="__none__">未分類</option>
+      </select>
     </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
       <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>生成分享連結</button>
@@ -86,7 +91,10 @@
   <div id="descEditModal" aria-modal="true" role="dialog" aria-labelledby="descEditTitle">
     <div id="descEditBackdrop"></div>
     <div id="descEditPanel" class="bg-slate-900 border border-slate-600 rounded-lg shadow-xl p-4">
-      <div id="descEditTitle" class="text-sm text-slate-300 mb-2">&#32232;&#36655;&#25551;&#36848;</div>
+      <div id="descEditTitle" class="text-sm text-slate-300 mb-2">編輯描述與分類</div>
+      <label for="descEditCat" class="block text-xs text-slate-500 mb-1">分類</label>
+      <input type="text" id="descEditCat" class="w-full mb-2 bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-slate-200 text-sm" placeholder="留白則為未分類" autocomplete="off" />
+      <p class="text-xs text-slate-500 mb-2 leading-relaxed">儲存時，描述會經伺服器與入庫相同規則處理：簡轉繁、移除文案中獨立的 p400、P411 等批發價標記。</p>
       <textarea id="descEditTa" class="w-full min-h-[220px] bg-slate-800 border border-slate-600 rounded p-2 text-slate-200 text-sm" autocomplete="off"></textarea>
       <div class="flex gap-2 mt-3 justify-end flex-shrink-0">
         <button type="button" id="descEditCancel" class="px-3 py-1.5 rounded bg-slate-700 text-slate-200 text-sm">&#21462;&#28040;</button>
@@ -162,11 +170,30 @@
       const d = document.getElementById("debugOut");
       if (d) d.textContent = (d.textContent || "") + msg + "\n";
     }
+    async function refreshCategoryOptions() {
+      try {
+        const r = await fetch("/api/categories?_=" + Date.now(), { cache: "no-store" });
+        const j = await r.json();
+        const sel = document.getElementById("catFilter");
+        if (!sel || !j.categories) return;
+        const cur = sel.value;
+        while (sel.options.length > 2) sel.remove(2);
+        for (const c of j.categories) {
+          const o = document.createElement("option");
+          o.value = c;
+          o.textContent = c;
+          sel.appendChild(o);
+        }
+        sel.value = [...sel.options].some((o) => o.value === cur) ? cur : "";
+      } catch (_) {}
+    }
     async function load() {
       const d = document.getElementById("debugOut");
       if (d) d.textContent = "";
+      await refreshCategoryOptions();
       const q = document.getElementById("q").value.trim();
-      const url = "/api/items?q=" + encodeURIComponent(q) + "&_=" + Date.now();
+      const cat = document.getElementById("catFilter").value;
+      const url = "/api/items?q=" + encodeURIComponent(q) + "&category=" + encodeURIComponent(cat) + "&_=" + Date.now();
       debugLog("fetch: " + url);
       const fetchOpts = { cache: "no-store" };
       try {
@@ -210,7 +237,9 @@
         const badge = imgs > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + imgs + '\u5f35</span>' : "";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
-        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center justify-between"><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
+        const catStr = (it.category && String(it.category).trim()) ? String(it.category).trim() : "未分類";
+        const catBadge = '<span class="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600/90 text-white max-w-[7rem] truncate z-[1]" title="' + esc(catStr) + '">' + esc(catStr) + '</span>';
+        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '">' + catBadge + '<img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center justify-between"><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
         grid.appendChild(card);
         const prevEl = card.querySelector(".descPreview");
         if (prevEl) prevEl.textContent = it.description || "";
@@ -226,6 +255,7 @@
         descEditId = Number(id);
         const it = items.find((i) => i.id === descEditId);
         document.getElementById("descEditTa").value = it ? (it.description || "") : "";
+        document.getElementById("descEditCat").value = it && it.category ? String(it.category) : "";
         document.getElementById("descEditModal").classList.add("show");
         setTimeout(() => document.getElementById("descEditTa").focus(), 50);
       }
@@ -253,12 +283,12 @@
           const r = await fetch("/api/items/" + descEditId, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ description })
+            body: JSON.stringify({ description, category: document.getElementById("descEditCat").value })
           });
           const j = await r.json();
           if (!j.ok) throw new Error(j.error || "Save failed");
           const row = items.find((x) => x.id === descEditId);
-          if (row && j.item) row.description = j.item.description;
+          if (row && j.item) { row.description = j.item.description; row.category = j.item.category; }
           closeDescEditModal();
           load();
         } catch (e) {
@@ -292,6 +322,7 @@
       else if (e.key === "Escape") { lightbox.classList.remove("show"); e.preventDefault(); }
     });
     document.getElementById("btnSearch").onclick = load;
+    document.getElementById("catFilter").onchange = load;
     document.getElementById("q").onkeydown = e => { if (e.key === "Enter") load(); };
     document.getElementById("btnShare").onclick = async () => {
       const ids = [...document.querySelectorAll(".pick:checked")].map(c => +c.dataset.id);

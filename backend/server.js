@@ -5,8 +5,19 @@ const fs = require('fs');
 const axios = require('axios');
 const puppeteer = require('puppeteer');
 const { matchesKeyword } = require('./keywordMatch');
-const { normalizeDescription } = require('./textNormalize');
-const { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem, updateItemDescription } = require('./db');
+const { normalizeDescription, normalizeCategory } = require('./textNormalize');
+const {
+  getDataDir,
+  insertItem,
+  listItems,
+  listCategoryLabels,
+  createShare,
+  getShareItems,
+  getItem,
+  deleteItem,
+  updateItem,
+  updateItemDescription,
+} = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const OUT_OF_STOCK = /缺貨|售罄|断货|无货|售完|sold\s*out/i;
@@ -1009,6 +1020,7 @@ app.post('/import', async (req, res) => {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || '127.0.0.1:' + (process.env.PORT || 3000);
     const base = proto + '://' + host;
+    const defaultCategory = normalizeCategory((req.body && req.body.defaultCategory) || '');
     for (const it of items) {
       const rawUrls = it.imageUrls && it.imageUrls.length ? it.imageUrls : [it.imageUrl || (it.imageUrls && it.imageUrls[0])];
       console.log('[CP:import] rawUrls.length=' + rawUrls.length + ' from=' + (it.imageUrls ? 'imageUrls' : 'imageUrl'));
@@ -1023,11 +1035,12 @@ app.post('/import', async (req, res) => {
       });
       if (!imageUrls.length) continue;
       const description = normalizeDescription(it.description);
+      const perCat = it.category != null && String(it.category).trim() !== '' ? normalizeCategory(it.category) : defaultCategory;
       const imagePath = '/proxy?url=' + encodeURIComponent(imageUrls[0]);
       const image_paths = imageUrls.map((u) => '/proxy?url=' + encodeURIComponent(u));
       console.log('[CP:import] item image_paths count=', image_paths.length);
-      const id = insertItem({ imagePath, imageUrlOriginal: imageUrls[0], description, image_paths });
-      saved.push({ id, imagePath, description });
+      const id = insertItem({ imagePath, imageUrlOriginal: imageUrls[0], description, image_paths, category: perCat });
+      saved.push({ id, imagePath, description, category: perCat });
     }
     const { catalogPath: cp } = getDataDir();
     console.log('[CP:import] saved ' + saved.length + ', catalogPath=' + cp);
@@ -1047,9 +1060,20 @@ app.post('/import', async (req, res) => {
   }
 });
 
+app.get('/api/categories', (req, res) => {
+  try {
+    const categories = listCategoryLabels();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, categories });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
 app.get('/api/items', (req, res) => {
   try {
-    const items = listItems(req.query.q || '');
+    const cat = req.query.category !== undefined ? req.query.category : '';
+    const items = listItems(req.query.q || '', cat);
     console.log('[CP:api] GET /api/items returning ' + items.length + ' items');
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, items });
@@ -1080,7 +1104,10 @@ app.put('/api/items/:id', (req, res) => {
     const rawDescription = req.body && req.body.description;
     if (typeof rawDescription !== 'string') return res.status(400).json({ ok: false, error: 'description required' });
     const description = normalizeDescription(rawDescription);
-    const updated = updateItemDescription(id, description);
+    const body = req.body || {};
+    const hasCat = Object.prototype.hasOwnProperty.call(body, 'category');
+    const category = hasCat ? normalizeCategory(body.category) : undefined;
+    const updated = hasCat ? updateItem(id, { description, category }) : updateItemDescription(id, description);
     if (!updated) return res.status(404).json({ ok: false, error: 'not found' });
     res.json({ ok: true, item: updated });
   } catch (e) {

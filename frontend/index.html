@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
@@ -63,6 +63,10 @@
       <textarea id="jsonPaste" class="w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[140px]" placeholder="{ &quot;result&quot;: { &quot;items&quot;: [...] } }" spellcheck="false"></textarea>
       <button type="button" id="btnParseJson" class="mt-3 px-4 py-2 rounded-lg text-sm font-medium">&#35299;&#26512;&#20006;&#36617;&#20837;&#21015;&#34920;</button>
     </details>
+    <div class="bg-slate-900 rounded-xl p-4 border border-slate-800 mb-4">
+      <label for="importCategory" class="block text-sm text-slate-500 mb-1">入庫分類（可選，套用到本次入庫；單筆若有 <code class="bg-slate-800 px-1 rounded text-xs">category</code> 則優先）</label>
+      <input id="importCategory" type="text" class="w-full max-w-md bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="例如：包包、飾品" autocomplete="off" />
+    </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
       <span class="text-sm text-slate-400">勾選要入庫的項目後點擊按鈕</span>
       <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>入庫已選（<span id="selCount">0</span> 項）</button>
@@ -108,7 +112,10 @@
         const row = arr[r];
         const imageUrls = collectImageUrls(row);
         if (!imageUrls.length) continue;
-        out.push({ description: row.title || '', imageUrl: imageUrls[0], imageUrls: imageUrls.slice() });
+        const rowCat = row.category != null && String(row.category).trim() !== '' ? String(row.category).trim() : (row.cat != null && String(row.cat).trim() !== '' ? String(row.cat).trim() : undefined);
+        const base = { description: row.title || '', imageUrl: imageUrls[0], imageUrls: imageUrls.slice() };
+        if (rowCat) base.category = rowCat;
+        out.push(base);
       }
       return out;
     }
@@ -131,6 +138,7 @@
           checked: [...document.querySelectorAll('.pick:checked')].map(c => +c.dataset.i),
           url: document.getElementById('url').value,
           keyword: document.getElementById('keyword').value,
+          importCategory: document.getElementById('importCategory').value,
           status: statusEl.textContent
         }));
       } catch (_) {}
@@ -145,6 +153,7 @@
         importSkipEnrich = !!data.importSkipEnrich;
         if (data.url) document.getElementById('url').value = data.url;
         if (data.keyword) document.getElementById('keyword').value = data.keyword || '';
+        if (data.importCategory != null) document.getElementById('importCategory').value = data.importCategory;
         statusEl.textContent = data.status || '';
         renderGrid();
         if (Array.isArray(data.checked) && data.checked.length) {
@@ -218,7 +227,8 @@
     async function doImport(sel) {
       statusEl.textContent = '入庫中...';
       try {
-        const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel, skipEnrich: importSkipEnrich }) });
+        const defaultCategory = document.getElementById('importCategory').value.trim();
+        const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel, skipEnrich: importSkipEnrich, defaultCategory }) });
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || '入庫失敗');
         if (j.ok === false) throw new Error(j.error || '入庫失敗');

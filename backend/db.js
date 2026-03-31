@@ -25,29 +25,50 @@ function saveCatalog(c) {
   fs.writeFileSync(getDataDir().catalogPath, JSON.stringify(c, null, 0), 'utf8');
 }
 
-function insertItem({ imagePath, imageUrlOriginal, description, image_paths }) {
+function insertItem({ imagePath, imageUrlOriginal, description, image_paths, category }) {
   // Accepts imagePath: /uploads/xxx or /proxy?url=... (proxied when CDN blocks direct fetch)
   const c = loadCatalog();
   const id = c.nextId++;
+  const cat = category != null && String(category).trim() !== '' ? String(category).slice(0, 64) : '';
   c.items.push({
     id,
     image_path: imagePath,
     image_paths: Array.isArray(image_paths) ? image_paths : null,
     image_url_original: imageUrlOriginal || null,
     description: description || '',
+    category: cat,
     created_at: new Date().toISOString(),
   });
   saveCatalog(c);
-  console.log('[CP:db] insertItem id=' + id + ' path=' + imagePath);
+  console.log('[CP:db] insertItem id=' + id + ' path=' + imagePath + (cat ? ' cat=' + cat : ''));
   return id;
 }
 
-function listItems(search) {
+/** category 篩選：未傳或空字串＝全部；__none__＝僅未分類；其餘為完全比對分類名 */
+function listItems(search, category) {
   let items = loadCatalog().items.slice().reverse();
+  const cf = category !== undefined && category !== null ? String(category).trim() : '';
+  if (cf && cf !== '__all__') {
+    if (cf === '__none__') {
+      items = items.filter((x) => !x.category || String(x.category).trim() === '');
+    } else {
+      items = items.filter((x) => String(x.category || '').trim() === cf);
+    }
+  }
   const k = (search || '').trim();
-  if (k) items = items.filter((x) => matchesKeyword(x.description, x.image_url_original || '', k));
+  if (k) items = items.filter((x) => matchesKeyword(x.description, x.image_url_original || '', k, x.category));
   console.log('[CP:db] listItems returning ' + items.length + ' items from catalog');
   return items;
+}
+
+function listCategoryLabels() {
+  const c = loadCatalog();
+  const set = new Set();
+  for (const it of c.items || []) {
+    const t = String(it.category || '').trim();
+    if (t) set.add(t);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
 }
 
 function createShare(itemIds) {
@@ -83,13 +104,29 @@ function deleteItem(id) {
   return removed;
 }
 
-function updateItemDescription(id, description) {
+function updateItem(id, fields) {
   const c = loadCatalog();
   const item = c.items.find((x) => x.id === Number(id));
   if (!item) return null;
-  item.description = String(description || '').slice(0, 4000);
+  if (fields.description !== undefined) item.description = String(fields.description || '').slice(0, 4000);
+  if (fields.category !== undefined) item.category = String(fields.category || '').slice(0, 64);
   saveCatalog(c);
   return item;
 }
 
-module.exports = { getDataDir, insertItem, listItems, createShare, getShareItems, getItem, deleteItem, updateItemDescription };
+function updateItemDescription(id, description) {
+  return updateItem(id, { description });
+}
+
+module.exports = {
+  getDataDir,
+  insertItem,
+  listItems,
+  listCategoryLabels,
+  createShare,
+  getShareItems,
+  getItem,
+  deleteItem,
+  updateItem,
+  updateItemDescription,
+};

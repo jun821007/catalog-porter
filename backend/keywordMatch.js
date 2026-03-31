@@ -10,19 +10,20 @@ function normalizeLoose(s) {
     .replace(/[^\p{L}\p{N}\u4e00-\u9fff]+/gu, '');
 }
 
-function matchesKeyword(description, imageUrl, keyword) {
+function matchesKeyword(description, imageUrl, keyword, category) {
   const k = (keyword || "").trim();
   if (!k) return true;
   const d = description || "";
   const u = imageUrl || "";
-  const blob = (d + " " + u).toLowerCase();
+  const cat = category || "";
+  const blob = (d + " " + u + " " + cat).toLowerCase();
   const kl = k.toLowerCase();
   if (blob.includes(kl)) return true;
   if (d.includes(k) || u.includes(k)) return true;
-  const looseBlob = normalizeLoose(d + " " + u);
+  const looseBlob = normalizeLoose(d + " " + u + " " + cat);
   const looseK = normalizeLoose(k);
   if (looseK && looseBlob.includes(looseK)) return true;
-  const full = d + " " + u;
+  const full = d + " " + u + " " + cat;
   const brands = [
     { keys: /dior|迪奥|迪奧|cd/i, re: /dior|迪奥|迪奧|christian\s*dior|cd\s*(包|款|老花)/i },
     { keys: /balenciaga|巴黎世家|巴黎世/i, re: /balenciaga|巴黎世家|巴黎世/i },
