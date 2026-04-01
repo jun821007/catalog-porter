@@ -113,29 +113,73 @@
     let importSkipEnrich = false;
     let pendingImportSel = null;
     function stripQuery(u) { return String(u || '').split('?')[0]; }
+    function normalizeImgUrl(u) {
+      u = String(u || '').trim();
+      if (!u) return '';
+      if (u.startsWith('//')) return 'https:' + u;
+      return u;
+    }
     function collectImageUrls(row) {
-      if (Array.isArray(row.imgsSrc) && row.imgsSrc.length) return row.imgsSrc.filter(Boolean);
-      if (Array.isArray(row.images) && row.images.length) return row.images.map(stripQuery).filter(Boolean);
-      if (Array.isArray(row.imgs) && row.imgs.length) return row.imgs.map(stripQuery).filter(Boolean);
-      if (row.videoThumbImg) return [stripQuery(row.videoThumbImg)];
+      const norm = (a) => (Array.isArray(a) ? a.map(normalizeImgUrl).filter(Boolean) : []);
+      if (Array.isArray(row.imgsSrc) && row.imgsSrc.length) return norm(row.imgsSrc);
+      if (Array.isArray(row.images) && row.images.length) return row.images.map((x) => normalizeImgUrl(stripQuery(x))).filter(Boolean);
+      if (Array.isArray(row.imgs) && row.imgs.length) return row.imgs.map((x) => normalizeImgUrl(stripQuery(x))).filter(Boolean);
+      if (row.videoThumbImg) return [normalizeImgUrl(stripQuery(row.videoThumbImg))].filter(Boolean);
       return [];
     }
-    function extractJsonObject(text) {
-      const t = String(text || '').trim();
-      if (!t) throw new Error('請貼上內容');
-      try { return JSON.parse(t); } catch (_) {}
-      const start = t.indexOf('{');
-      const end = t.lastIndexOf('}');
-      if (start >= 0 && end > start) {
-        try { return JSON.parse(t.slice(start, end + 1)); } catch (e2) {
-          throw new Error('JSON 解析失敗');
+    function stripJsonPasteDecorators(text) {
+      let s = String(text || '').trim();
+      if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);
+      s = s.replace(/^\uFEFF/, '');
+      s = s.replace(/^```(?:json)?\s*\r?\n?/i, '').replace(/\r?\n?```\s*$/i, '');
+      return s.trim();
+    }
+    function extractFirstJsonObject(text) {
+      const start = text.indexOf('{');
+      if (start < 0) throw new Error('找不到 {');
+      let depth = 0;
+      let inStr = false;
+      let esc = false;
+      for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (inStr) {
+          if (esc) { esc = false; continue; }
+          if (c === '\\') { esc = true; continue; }
+          if (c === '"') inStr = false;
+          continue;
+        }
+        if (c === '"') { inStr = true; continue; }
+        if (c === '{') depth++;
+        else if (c === '}') {
+          depth--;
+          if (depth === 0) return text.slice(start, i + 1);
         }
       }
-      throw new Error('找不到 JSON');
+      throw new Error('JSON 大括號不完整（貼上內容可能被截斷）');
+    }
+    function extractJsonObject(text) {
+      const t = stripJsonPasteDecorators(text);
+      if (!t) throw new Error('請貼上內容');
+      try { return JSON.parse(t); } catch (e1) {
+        try {
+          const slice = extractFirstJsonObject(t);
+          return JSON.parse(slice);
+        } catch (e2) {
+          const msg = (e1 && e1.message) ? e1.message : String(e1);
+          throw new Error('JSON 解析失敗：' + msg);
+        }
+      }
+    }
+    function getWechatAlbumItemsArray(parsed) {
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (Array.isArray(parsed.items)) return parsed.items;
+      if (parsed.result && Array.isArray(parsed.result.items)) return parsed.result.items;
+      if (parsed.data && parsed.data.result && Array.isArray(parsed.data.result.items)) return parsed.data.result.items;
+      return null;
     }
     function mapWechatAlbumItems(parsed) {
-      const arr = parsed && parsed.result && Array.isArray(parsed.result.items) ? parsed.result.items : null;
-      if (!arr) throw new Error('找不到 result.items');
+      const arr = getWechatAlbumItemsArray(parsed);
+      if (!arr) throw new Error('找不到商品陣列：需有 items 或 result.items');
       const out = [];
       for (let r = 0; r < arr.length; r++) {
         const row = arr[r];
@@ -293,18 +337,28 @@
     document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); saveToStorage(); };
     document.getElementById('btnParseJson').onclick = () => {
       const raw = document.getElementById('jsonPaste').value;
-      try {
-        const parsed = extractJsonObject(raw);
-        const mapped = mapWechatAlbumItems(parsed);
-        if (!mapped.length) { alert('沒有可用項目（需有圖片網址）'); return; }
-        items = mapped;
-        importSkipEnrich = true;
-        statusEl.textContent = 'JSON 已載入 ' + items.length + ' 筆（入庫沿用 API 圖片，不另開深化）';
-        renderGrid();
-        saveToStorage();
-      } catch (e) {
-        alert(e.message || '解析失敗');
-      }
+      statusEl.textContent = '解析中…';
+      setTimeout(() => {
+        try {
+          const parsed = extractJsonObject(raw);
+          const mapped = mapWechatAlbumItems(parsed);
+          if (!mapped.length) {
+            alert('沒有可用項目（需有圖片網址）');
+            statusEl.textContent = '';
+            return;
+          }
+          items = mapped;
+          importSkipEnrich = true;
+          statusEl.textContent = 'JSON 已載入 ' + items.length + ' 筆（入庫沿用 API 圖片，不另開深化）';
+          renderGrid();
+          saveToStorage();
+          const jp = document.getElementById('jsonPanel');
+          if (jp && !jp.open) jp.open = true;
+        } catch (e) {
+          statusEl.textContent = '';
+          alert(e.message || '解析失敗');
+        }
+      }, 0);
     };
     async function doImport(sel, defaultCategory) {
       statusEl.textContent = '入庫中...';
