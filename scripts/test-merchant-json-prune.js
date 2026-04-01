@@ -1,0 +1,16 @@
+﻿const fs = require("fs");
+const vm = require("vm");
+const path = require("path");
+const ctx = {};
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(__dirname, "../frontend/merchant-json.js"), "utf8"), ctx);
+const good = JSON.stringify({ result: { items: [{ title: "x", imgsSrc: ["https://a.com/1.jpg"] }] } });
+const badErr = JSON.stringify({ errcode: 0 });
+const badNoImg = JSON.stringify({ result: { items: [{ title: "no pic" }] } });
+const p = ctx.pruneJsonStagingToUsable([badErr, badNoImg, good]);
+if (p.dropped !== 2 || p.segments.length !== 1) throw new Error("prune bad " + JSON.stringify(p));
+const merged = ctx.mapFromJsonSegments([badErr, good], badNoImg);
+if (merged.length !== 1) throw new Error("merge len " + merged.length);
+if (!ctx.jsonSegmentHasUsableProductData(good)) throw new Error("good");
+if (ctx.jsonSegmentHasUsableProductData(badErr)) throw new Error("badErr");
+console.log("merchant-json prune tests ok");

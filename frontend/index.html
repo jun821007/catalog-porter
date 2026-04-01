@@ -321,25 +321,35 @@
       const name = document.getElementById('newMerchantName').value.trim();
       if (!name) { alert('請輸入商家名稱'); return; }
       const jsonPasteVal = document.getElementById('jsonPaste').value.trim();
+      const jsonIntent = jsonStagingSegments.length > 0 || jsonPasteVal.length > 0;
+      const pruned = pruneJsonStagingToUsable(jsonStagingSegments);
+      if (pruned.dropped > 0) {
+        jsonStagingSegments = pruned.segments;
+        renderJsonStaging();
+        statusEl.textContent = '已略過 ' + pruned.dropped + ' 段無效 JSON（無商品列或無圖），其餘已納入';
+      }
+      const lastPasteEffective = jsonPasteVal && jsonSegmentHasUsableProductData(jsonPasteVal) ? jsonPasteVal : '';
       let newFromJson = [];
       try {
-        newFromJson = mapFromJsonSegments(jsonStagingSegments, jsonPasteVal);
+        newFromJson = mapFromJsonSegments(jsonStagingSegments, lastPasteEffective);
       } catch (e) {
         alert(e.message || 'JSON 解析失敗');
         return;
       }
-      const hasNewJson = jsonStagingSegments.length > 0 || jsonPasteVal.length > 0;
+      const hasContributableJson = newFromJson.length > 0;
       let catalogItems = null;
       if (merchantEditId) {
-        if (hasNewJson) {
+        if (hasContributableJson) {
           catalogItems = mergeNormalizedCatalogItems(merchantEditCatalogSnapshot || [], newFromJson);
         }
       } else {
         catalogItems = newFromJson;
       }
       if (!merchantStagingUrls.length && (!catalogItems || !catalogItems.length)) {
-        if (!merchantEditId || hasNewJson) {
-          alert('請至少加入一個相冊網址，或貼上含商品的 JSON（result.items）');
+        if (!merchantEditId || jsonIntent) {
+          alert(jsonIntent
+            ? '目前沒有任何有效商品 JSON（已略過無效段落）。請至少一段含 result.items 與圖片網址，或加入相冊網址。'
+            : '請至少加入一個相冊網址，或貼上含商品的 JSON（result.items）');
           return;
         }
       }
@@ -677,14 +687,13 @@
     document.getElementById('btnJsonStagingAdd').onclick = () => {
       const raw = document.getElementById('jsonPaste').value.trim();
       if (!raw) { alert('請先貼上 JSON'); return; }
-      try {
-        const parsed = extractJsonObject(raw);
-        const arr = getWechatAlbumItemsArray(parsed);
-        if (!arr || !arr.length) { alert('此段沒有 items 或 result.items'); return; }
-        jsonStagingSegments.push(raw);
-        document.getElementById('jsonPaste').value = '';
-        renderJsonStaging();
-      } catch (e) { alert(e.message || 'JSON 無效'); }
+      if (!jsonSegmentHasUsableProductData(raw)) {
+        statusEl.textContent = '此段無有效商品（無 items／無圖），已略過未加入';
+        return;
+      }
+      jsonStagingSegments.push(raw);
+      document.getElementById('jsonPaste').value = '';
+      renderJsonStaging();
     };
     document.getElementById('btnJsonStagingClear').onclick = () => {
       jsonStagingSegments = [];

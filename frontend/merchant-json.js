@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 微商相冊 JSON -> 標準化 catalogItems；多段合併；與管理商家／抓取入庫共用。
  */
 function stripQuery(u) {
@@ -117,20 +117,61 @@ function mapWechatAlbumItems(parsed) {
   });
   return out;
 }
+
+/** 是否為可入庫段落：能解析、有 items、且至少一筆有圖片網址（略過僅 errcode／空陣列／無圖列） */
+function jsonSegmentHasUsableProductData(rawString) {
+  try {
+    const parsed = extractJsonObject(rawString);
+    const arr = getWechatAlbumItemsArray(parsed);
+    if (!arr || !arr.length) return false;
+    for (let i = 0; i < arr.length; i++) {
+      if (collectImageUrls(arr[i]).length > 0) return true;
+    }
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
+/** 從待儲存陣列移除無效段，回傳新陣列與略過段數 */
+function pruneJsonStagingToUsable(segments) {
+  const input = Array.isArray(segments) ? segments : [];
+  const usable = [];
+  let dropped = 0;
+  for (let s = 0; s < input.length; s++) {
+    if (jsonSegmentHasUsableProductData(input[s])) usable.push(input[s]);
+    else dropped++;
+  }
+  return { segments: usable, dropped };
+}
+
+/**
+ * 多段合併；每段單獨 try，略過無法解析／無 items／無圖列；最後一框可選。
+ */
 function mapFromJsonSegments(segmentStrings, optionalLastPaste) {
   const merged = [];
   const segs = (segmentStrings || []).slice();
   if (optionalLastPaste && String(optionalLastPaste).trim()) segs.push(String(optionalLastPaste).trim());
   if (!segs.length) return [];
-  for (const seg of segs) {
+  for (let si = 0; si < segs.length; si++) {
+    const seg = segs[si];
     if (!String(seg).trim()) continue;
-    const parsed = extractJsonObject(seg);
-    const arr = getWechatAlbumItemsArray(parsed);
-    if (arr && arr.length) merged.push(...arr);
+    try {
+      const parsed = extractJsonObject(seg);
+      const arr = getWechatAlbumItemsArray(parsed);
+      if (!arr || !arr.length) continue;
+      for (let r = 0; r < arr.length; r++) {
+        const row = arr[r];
+        if (collectImageUrls(row).length) merged.push(row);
+      }
+    } catch (_) {
+      continue;
+    }
   }
   if (!merged.length) return [];
   return mapWechatAlbumItems({ result: { items: merged } });
 }
+
 function mergeNormalizedCatalogItems(a, b) {
   const aArr = Array.isArray(a) ? a : [];
   const bArr = Array.isArray(b) ? b : [];
