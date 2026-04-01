@@ -155,10 +155,20 @@ button.text-red-400.hover\:text-red-300:hover { color: var(--red-300); }
   .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* Form contrast - light text on dark inputs */
-input, textarea, select { color: #f1f5f9 !important; background-color: var(--slate-800) !important; font-size: 1rem; }
-input::placeholder, textarea::placeholder { color: #94a3b8; opacity: 0.9; }
-input:-webkit-autofill { -webkit-text-fill-color: #f1f5f9; -webkit-box-shadow: 0 0 0 1000px var(--slate-800) inset; }
+/* 深色頁（body.text-slate-100，如庫存／分享）才用淺字深底輸入；抓取／管理商家為淺色頁，勿全域強制黑底 */
+body.text-slate-100 input:not([type="checkbox"]):not([type="radio"]),
+body.text-slate-100 textarea,
+body.text-slate-100 select {
+  color: #f1f5f9 !important;
+  background-color: var(--slate-800) !important;
+  font-size: 1rem;
+}
+body.text-slate-100 input::placeholder,
+body.text-slate-100 textarea::placeholder { color: #94a3b8; opacity: 0.9; }
+body.text-slate-100 input:-webkit-autofill {
+  -webkit-text-fill-color: #f1f5f9;
+  -webkit-box-shadow: 0 0 0 1000px var(--slate-800) inset;
+}
 button { font-size: 1rem; }
 button.text-slate-400, button.underline { background-color: transparent !important; color: #cbd5e1 !important; border: none; }
 button.text-slate-400:hover, button.underline:hover { color: #f1f5f9 !important; }
