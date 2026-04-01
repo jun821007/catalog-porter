@@ -50,6 +50,10 @@
     #importCatModal.open { display: flex !important; }
     #importCatModal .panel { position: relative; z-index: 1; width: 100%; max-width: 22rem; }
 
+    #merchantModal { display: none; position: fixed; inset: 0; z-index: 105; align-items: center; justify-content: center; padding: 1rem; background: rgba(0,0,0,.45); }
+    #merchantModal.open { display: flex !important; }
+    #merchantModal .merchant-panel { position: relative; z-index: 1; width: 100%; max-width: 28rem; max-height: 90vh; overflow-y: auto; }
+
   </style>
 </head>
 <body class="min-h-screen">
@@ -62,6 +66,22 @@
   </header>
   <main class="max-w-7xl mx-auto p-4">
     <div class="surface-card rounded-xl p-6 border mb-6">
+      <div class="mb-4 pb-4 border-b border-slate-200">
+        <span class="block text-sm mb-2 font-medium text-slate-700">商家捷徑（存於伺服器 data；入庫分類仍於入庫時選）</span>
+        <div class="flex flex-wrap gap-2 items-end">
+          <div class="flex-1 min-w-[160px]">
+            <label for="merchantSelect" class="block text-xs text-slate-600 mb-1">選商家</label>
+            <select id="merchantSelect" class="field w-full border rounded-lg px-3 py-2 text-sm">
+              <option value="">— 不使用捷徑 —</option>
+            </select>
+          </div>
+          <div class="flex-1 min-w-[180px]">
+            <label for="merchantSourceSelect" class="block text-xs text-slate-600 mb-1">該商家的網址</label>
+            <select id="merchantSourceSelect" class="field w-full border rounded-lg px-3 py-2 text-sm hidden" title="多個網址時選一筆再抓取"></select>
+          </div>
+          <button type="button" id="btnMerchantManage" class="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white text-slate-800 shrink-0">管理商家…</button>
+        </div>
+      </div>
       <label for="url" class="block text-sm mb-1">微商相冊網址 (wecatalog 等)</label>
       <input id="url" type="url" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
       <label for="keyword" class="block text-sm mb-1">搜尋關鍵字（可留空）</label>
@@ -103,6 +123,26 @@
     </div>
   </div>
 
+
+  <div id="merchantModal" role="dialog" aria-modal="true" aria-labelledby="merchantModalTitle">
+    <div class="merchant-panel surface-card rounded-xl border p-5 shadow-xl mx-auto">
+      <h2 id="merchantModalTitle" class="text-base font-semibold text-slate-800 mb-3">管理商家捷徑</h2>
+      <div id="merchantList" class="text-sm space-y-2 mb-4 min-h-[2rem]"></div>
+      <hr class="border-slate-200 my-3" />
+      <h3 class="text-sm font-medium text-slate-700 mb-2">新增商家</h3>
+      <label class="block text-xs text-slate-600 mb-1" for="newMerchantName">名稱</label>
+      <input id="newMerchantName" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" autocomplete="off" />
+      <label class="block text-xs text-slate-600 mb-1" for="newMerchantShopId">shop_id（選填，備註用）</label>
+      <input id="newMerchantShopId" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" placeholder="_ZsDj..." />
+      <label class="block text-xs text-slate-600 mb-1" for="newMerchantUrls">常用網址（一行一個）</label>
+      <textarea id="newMerchantUrls" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[100px]" placeholder="https://..." spellcheck="false"></textarea>
+      <div class="flex gap-2 justify-end mt-4 flex-wrap">
+        <button type="button" id="merchantModalClose" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white">關閉</button>
+        <button type="button" id="newMerchantSave" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">新增</button>
+      </div>
+    </div>
+  </div>
+
   <button type="button" id="floatImport" disabled title="入庫">入庫</button>
   <script>
     const grid = document.getElementById('grid');
@@ -112,6 +152,107 @@
     let items = [];
     let importSkipEnrich = false;
     let pendingImportSel = null;
+
+    let merchantsCache = [];
+    async function refreshMerchantSelect() {
+      const sel = document.getElementById('merchantSelect');
+      const cur = sel.value;
+      sel.innerHTML = '';
+      const o0 = document.createElement('option');
+      o0.value = '';
+      o0.textContent = '— 不使用捷徑 —';
+      sel.appendChild(o0);
+      try {
+        const r = await fetch('/api/merchants?_=' + Date.now(), { cache: 'no-store' });
+        const j = await r.json();
+        merchantsCache = (j.ok && Array.isArray(j.merchants)) ? j.merchants : [];
+        for (const m of merchantsCache) {
+          const o = document.createElement('option');
+          o.value = m.id;
+          o.textContent = m.name;
+          sel.appendChild(o);
+        }
+      } catch (_) { merchantsCache = []; }
+      if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
+      else sel.value = '';
+      syncMerchantSourceSelect();
+    }
+    function syncMerchantSourceSelect() {
+      const mid = document.getElementById('merchantSelect').value;
+      const ss = document.getElementById('merchantSourceSelect');
+      const urlEl = document.getElementById('url');
+      ss.innerHTML = '';
+      if (!mid) {
+        ss.classList.add('hidden');
+        return;
+      }
+      const m = merchantsCache.find((x) => x.id === mid);
+      const sources = (m && Array.isArray(m.sources)) ? m.sources : [];
+      if (!sources.length) {
+        ss.classList.add('hidden');
+        return;
+      }
+      sources.forEach((s, i) => {
+        const o = document.createElement('option');
+        o.value = String(i);
+        const u = s.url || '';
+        o.textContent = (s.label && String(s.label).trim()) ? String(s.label).trim() : (u.length > 56 ? u.slice(0, 54) + '…' : u);
+        o.title = u;
+        ss.appendChild(o);
+      });
+      if (sources.length > 1) ss.classList.remove('hidden');
+      else ss.classList.add('hidden');
+      const u0 = sources[0].url || '';
+      if (u0) urlEl.value = u0;
+      ss.value = '0';
+    }
+    function applyMerchantUrlFromPick() {
+      const mid = document.getElementById('merchantSelect').value;
+      const ss = document.getElementById('merchantSourceSelect');
+      const urlEl = document.getElementById('url');
+      if (!mid) return;
+      const m = merchantsCache.find((x) => x.id === mid);
+      const sources = (m && Array.isArray(m.sources)) ? m.sources : [];
+      const idx = parseInt(ss.value, 10);
+      if (!isNaN(idx) && sources[idx] && sources[idx].url) urlEl.value = sources[idx].url;
+    }
+    function openMerchantModal() {
+      document.getElementById('merchantModal').classList.add('open');
+      renderMerchantList();
+    }
+    function closeMerchantModal() {
+      document.getElementById('merchantModal').classList.remove('open');
+    }
+    function renderMerchantList() {
+      const el = document.getElementById('merchantList');
+      el.innerHTML = '';
+      if (!merchantsCache.length) {
+        el.innerHTML = '<p class="text-slate-500 text-xs">尚無商家，請於下方新增。</p>';
+        return;
+      }
+      merchantsCache.forEach((m) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-2 py-2 border-b border-slate-100';
+        const n = (m.sources && m.sources.length) ? m.sources.length : 0;
+        row.innerHTML = '<span class="truncate font-medium text-slate-800">' + (m.name || '').replace(/</g, '&lt;') + '</span><span class="text-xs text-slate-500">' + n + ' 網址</span>';
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'text-xs text-red-600 shrink-0';
+        del.textContent = '刪除';
+        del.onclick = async () => {
+          if (!confirm('刪除此商家捷徑？')) return;
+          try {
+            const r = await fetch('/api/merchants/' + encodeURIComponent(m.id), { method: 'DELETE' });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || '刪除失敗');
+            await refreshMerchantSelect();
+            renderMerchantList();
+          } catch (e) { alert(e.message || '刪除失敗'); }
+        };
+        row.appendChild(del);
+        el.appendChild(row);
+      });
+    }
     function stripQuery(u) { return String(u || '').split('?')[0]; }
     function normalizeImgUrl(u) {
       u = String(u || '').trim();
@@ -390,6 +531,31 @@
       if (!sel.length) return;
       openImportModal(sel);
     };
+    document.getElementById('merchantSelect').onchange = () => { syncMerchantSourceSelect(); };
+    document.getElementById('merchantSourceSelect').onchange = () => { applyMerchantUrlFromPick(); };
+    document.getElementById('btnMerchantManage').onclick = () => { openMerchantModal(); };
+    document.getElementById('merchantModalClose').onclick = () => { closeMerchantModal(); };
+    document.getElementById('merchantModal').onclick = (e) => { if (e.target.id === 'merchantModal') closeMerchantModal(); };
+    document.getElementById('newMerchantSave').onclick = async () => {
+      const name = document.getElementById('newMerchantName').value.trim();
+      const shopId = document.getElementById('newMerchantShopId').value.trim();
+      const raw = document.getElementById('newMerchantUrls').value;
+      const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      if (!name) { alert('請輸入商家名稱'); return; }
+      if (!lines.length) { alert('請至少輸入一個網址'); return; }
+      try {
+        const r = await fetch('/api/merchants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, shopId: shopId || '', sources: lines.map((u) => ({ url: u })) }) });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || '新增失敗');
+        document.getElementById('newMerchantName').value = '';
+        document.getElementById('newMerchantShopId').value = '';
+        document.getElementById('newMerchantUrls').value = '';
+        await refreshMerchantSelect();
+        renderMerchantList();
+        alert('已新增');
+      } catch (e) { alert(e.message || '新增失敗'); }
+    };
+    refreshMerchantSelect();
   </script>
 </body>
 </html>

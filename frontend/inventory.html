@@ -51,6 +51,16 @@
     #lightbox .desc { flex: 0 1 auto; min-height: 0; max-height: min(42vh, 300px); overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; margin-top: 0.5rem; padding: 0.35rem 0.25rem; box-sizing: border-box; text-align: left; font-size: 0.875rem; color: #cbd5e1; white-space: pre-wrap; }
     #shareLinkBtn { max-width: 100%; word-break: break-all; }
     .descPreview:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    /* 編輯彈窗：避免全站 .bg-slate-* 覆寫造成淺底淺字（手機上像空白） */
+    #descEditPanel { background: #ffffff !important; border-color: #cbd5e1 !important; }
+    #descEditPanel #descEditTitle { color: #0f172a !important; }
+    #descEditPanel label, #descEditPanel .text-slate-500 { color: #64748b !important; }
+    #descEditCat, #descEditTa {
+      color: #0f172a !important;
+      background-color: #f8fafc !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+    #descEditCat option { color: #0f172a; background: #f8fafc; }
   </style>
 </head>
 <body class="text-slate-100 min-h-screen">
@@ -207,10 +217,11 @@
         sel.appendChild(o);
       };
       addOpt("", "未分類");
+      const wanted = selectedRaw && String(selectedRaw).trim() ? String(selectedRaw).trim() : "";
+      const seen = new Set([""]);
       try {
         const r = await fetch("/api/categories?_=" + Date.now(), { cache: "no-store" });
         const j = await r.json();
-        const seen = new Set([""]);
         for (const c of (j.categories || [])) {
           const v = String(c || "").trim();
           if (!v || seen.has(v)) continue;
@@ -218,9 +229,79 @@
           addOpt(v, v);
         }
       } catch (_) {}
-      const cat = selectedRaw && String(selectedRaw).trim() ? String(selectedRaw).trim() : "";
-      sel.value = [...sel.options].some((o) => o.value === cat) ? cat : "";
+      if (wanted && !seen.has(wanted)) addOpt(wanted, wanted);
+      const hasVal = [...sel.options].some((o) => o.value === wanted);
+      sel.value = hasVal ? wanted : "";
+      if (!hasVal && wanted) {
+        addOpt(wanted, wanted);
+        sel.value = wanted;
+      }
+      if (sel.value === "" && wanted === "") sel.selectedIndex = 0;
     }
+    function closeDescEditModal() {
+      descEditId = null;
+      document.getElementById("descEditModal").classList.remove("show");
+    }
+    async function openDescEditModal(rawId) {
+      const nid = Number(rawId);
+      if (Number.isNaN(nid)) return;
+      descEditId = nid;
+      const it = items.find((i) => Number(i.id) === nid);
+      const previewEl = grid.querySelector('.descPreview[data-id="' + nid + '"]');
+      const cardEl = previewEl ? previewEl.closest("[data-item-id]") : null;
+      let desc = it ? String(it.description ?? "") : "";
+      if (previewEl && (!it || desc === "")) {
+        const fromDom = previewEl.textContent || "";
+        if (fromDom) desc = fromDom;
+      }
+      document.getElementById("descEditTa").value = desc;
+      const catForSelect = it
+        ? String(it.category || "").trim()
+        : (cardEl ? String(cardEl.getAttribute("data-category") || "").trim() : "");
+      await fillDescEditCategorySelect(catForSelect);
+      document.getElementById("descEditModal").classList.add("show");
+      requestAnimationFrame(() => {
+        const ta = document.getElementById("descEditTa");
+        ta.value = desc;
+        const sel = document.getElementById("descEditCat");
+        const w = catForSelect;
+        if (w && ![...sel.options].some((o) => o.value === w)) {
+          const o = document.createElement("option");
+          o.value = w;
+          o.textContent = w;
+          sel.appendChild(o);
+        }
+        if ([...sel.options].some((o) => o.value === w)) sel.value = w;
+        else sel.selectedIndex = 0;
+        ta.focus();
+      });
+    }
+    async function saveDescEdit() {
+      if (descEditId == null) return;
+      const description = document.getElementById("descEditTa").value;
+      const btn = document.getElementById("descEditSave");
+      btn.disabled = true;
+      try {
+        const r = await fetch("/api/items/" + descEditId, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description, category: document.getElementById("descEditCat").value })
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "Save failed");
+        const row = items.find((x) => Number(x.id) === descEditId);
+        if (row && j.item) { row.description = j.item.description; row.category = j.item.category; }
+        closeDescEditModal();
+        load();
+      } catch (e) {
+        alert(e.message || "Save failed");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    document.getElementById("descEditCancel").onclick = closeDescEditModal;
+    document.getElementById("descEditBackdrop").onclick = closeDescEditModal;
+    document.getElementById("descEditSave").onclick = saveDescEdit;
     async function load() {
       const d = document.getElementById("debugOut");
       if (d) d.textContent = "";
@@ -270,6 +351,8 @@
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
         const catStr = (it.category && String(it.category).trim()) ? String(it.category).trim() : "未分類";
         card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" /></div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center gap-2 flex-wrap"><span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/90 text-white max-w-[45%] truncate" title="' + esc(catStr) + '">' + esc(catStr) + '</span><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
+        card.setAttribute("data-item-id", String(it.id));
+        card.setAttribute("data-category", (it.category && String(it.category).trim()) ? String(it.category).trim() : "");
         grid.appendChild(card);
         const prevEl = card.querySelector(".descPreview");
         if (prevEl) prevEl.textContent = it.description || "";
@@ -281,18 +364,6 @@
           if (it) openLightbox(it);
         };
       });
-      async function openDescEditModal(id) {
-        descEditId = Number(id);
-        const it = items.find((i) => i.id === descEditId);
-        document.getElementById("descEditTa").value = it ? (it.description || "") : "";
-        await fillDescEditCategorySelect(it && it.category ? it.category : "");
-        document.getElementById("descEditModal").classList.add("show");
-        setTimeout(() => document.getElementById("descEditTa").focus(), 50);
-      }
-      function closeDescEditModal() {
-        descEditId = null;
-        document.getElementById("descEditModal").classList.remove("show");
-      }
       grid.querySelectorAll(".btnOpenEdit").forEach((btn) => {
         btn.onclick = (e) => { e.stopPropagation(); void openDescEditModal(btn.dataset.id); };
       });
@@ -302,31 +373,6 @@
           if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openDescEditModal(el.dataset.id); }
         };
       });
-      document.getElementById("descEditCancel").onclick = closeDescEditModal;
-      document.getElementById("descEditBackdrop").onclick = closeDescEditModal;
-      document.getElementById("descEditSave").onclick = async () => {
-        if (descEditId == null) return;
-        const description = document.getElementById("descEditTa").value;
-        const btn = document.getElementById("descEditSave");
-        btn.disabled = true;
-        try {
-          const r = await fetch("/api/items/" + descEditId, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ description, category: document.getElementById("descEditCat").value })
-          });
-          const j = await r.json();
-          if (!j.ok) throw new Error(j.error || "Save failed");
-          const row = items.find((x) => x.id === descEditId);
-          if (row && j.item) { row.description = j.item.description; row.category = j.item.category; }
-          closeDescEditModal();
-          load();
-        } catch (e) {
-          alert(e.message || "Save failed");
-        } finally {
-          btn.disabled = false;
-        }
-      };
       updateShareBtn();
     }
     function updateShareBtn() {

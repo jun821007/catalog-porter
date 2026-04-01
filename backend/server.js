@@ -18,6 +18,10 @@ const {
   deleteItem,
   updateItem,
   updateItemDescription,
+  listMerchants,
+  addMerchant,
+  updateMerchant,
+  deleteMerchant,
 } = require('./db');
 
 const PORT = process.env.PORT || 3000;
@@ -1078,6 +1082,57 @@ app.post('/api/categories', (req, res) => {
     if (!name) return res.status(400).json({ ok: false, error: 'name required' });
     addCategoryLabel(name);
     res.json({ ok: true, categories: listCategoryLabels() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
+
+app.get('/api/merchants', (req, res) => {
+  try {
+    const merchants = listMerchants();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, merchants });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
+app.post('/api/merchants', (req, res) => {
+  try {
+    const body = req.body || {};
+    const name = typeof body.name === 'string' ? body.name : '';
+    const shopId = body.shopId != null ? String(body.shopId) : '';
+    const sources = body.sources;
+    const m = addMerchant({ name, shopId, sources });
+    if (!m) return res.status(400).json({ ok: false, error: 'name required' });
+    res.json({ ok: true, merchant: m, merchants: listMerchants() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
+app.put('/api/merchants/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const body = req.body || {};
+    const fields = {};
+    if (body.name !== undefined) fields.name = body.name;
+    if (body.shopId !== undefined) fields.shopId = body.shopId;
+    if (body.sources !== undefined) fields.sources = body.sources;
+    const m = updateMerchant(id, fields);
+    if (!m) return res.status(404).json({ ok: false, error: 'not found' });
+    res.json({ ok: true, merchant: m, merchants: listMerchants() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
+app.delete('/api/merchants/:id', (req, res) => {
+  try {
+    const ok = deleteMerchant(req.params.id);
+    if (!ok) return res.status(404).json({ ok: false, error: 'not found' });
+    res.json({ ok: true, merchants: listMerchants() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }

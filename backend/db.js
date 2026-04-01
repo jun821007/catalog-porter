@@ -16,11 +16,15 @@ function getDataDir() {
 function loadCatalog() {
   const { catalogPath } = getDataDir();
   if (!fs.existsSync(catalogPath)) {
-    return { nextId: 1, items: [], shares: {}, categoryLabels: [] };
+    return { nextId: 1, items: [], shares: {}, categoryLabels: [], merchants: [] };
   }
   const c = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
   if (!Array.isArray(c.categoryLabels)) {
     c.categoryLabels = [];
+    saveCatalog(c);
+  }
+  if (!Array.isArray(c.merchants)) {
+    c.merchants = [];
     saveCatalog(c);
   }
   return c;
@@ -141,6 +145,65 @@ function updateItemDescription(id, description) {
   return updateItem(id, { description });
 }
 
+function normalizeMerchantSources(sources) {
+  if (!Array.isArray(sources)) return [];
+  const out = [];
+  for (const s of sources) {
+    if (typeof s === 'string') {
+      const u = s.trim();
+      if (u) out.push({ label: '', url: u.slice(0, 2048) });
+    } else if (s && typeof s === 'object' && s.url) {
+      const u = String(s.url).trim();
+      if (u) out.push({ label: String(s.label || '').trim().slice(0, 64), url: u.slice(0, 2048) });
+    }
+  }
+  return out;
+}
+
+function listMerchants() {
+  const c = loadCatalog();
+  return (c.merchants || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
+}
+
+function addMerchant({ name, shopId, sources }) {
+  const c = loadCatalog();
+  if (!Array.isArray(c.merchants)) c.merchants = [];
+  const n = String(name || '').trim().slice(0, 64);
+  if (!n) return null;
+  const id = 'm_' + crypto.randomBytes(6).toString('hex');
+  const m = {
+    id,
+    name: n,
+    shopId: shopId != null ? String(shopId).trim().slice(0, 128) : '',
+    sources: normalizeMerchantSources(sources),
+  };
+  c.merchants.push(m);
+  saveCatalog(c);
+  return m;
+}
+
+function updateMerchant(id, fields) {
+  const c = loadCatalog();
+  if (!Array.isArray(c.merchants)) c.merchants = [];
+  const m = c.merchants.find((x) => x.id === String(id));
+  if (!m) return null;
+  if (fields.name !== undefined) m.name = String(fields.name || '').trim().slice(0, 64);
+  if (fields.shopId !== undefined) m.shopId = String(fields.shopId || '').trim().slice(0, 128);
+  if (fields.sources !== undefined) m.sources = normalizeMerchantSources(fields.sources);
+  saveCatalog(c);
+  return m;
+}
+
+function deleteMerchant(id) {
+  const c = loadCatalog();
+  if (!Array.isArray(c.merchants)) return false;
+  const idx = c.merchants.findIndex((x) => x.id === String(id));
+  if (idx === -1) return false;
+  c.merchants.splice(idx, 1);
+  saveCatalog(c);
+  return true;
+}
+
 module.exports = {
   getDataDir,
   insertItem,
@@ -153,4 +216,8 @@ module.exports = {
   deleteItem,
   updateItem,
   updateItemDescription,
+  listMerchants,
+  addMerchant,
+  updateMerchant,
+  deleteMerchant,
 };
