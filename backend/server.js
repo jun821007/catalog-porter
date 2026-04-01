@@ -22,6 +22,7 @@ const {
   addMerchant,
   updateMerchant,
   deleteMerchant,
+  isDuplicateMerchantName,
 } = require('./db');
 
 const PORT = process.env.PORT || 3000;
@@ -1101,11 +1102,15 @@ app.get('/api/merchants', (req, res) => {
 app.post('/api/merchants', (req, res) => {
   try {
     const body = req.body || {};
-    const name = typeof body.name === 'string' ? body.name : '';
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
     const shopId = body.shopId != null ? String(body.shopId) : '';
     const sources = body.sources;
+    if (!name) return res.status(400).json({ ok: false, error: 'name required' });
+    if (isDuplicateMerchantName(name, null)) {
+      return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家，請選既有商家編輯或換名稱' });
+    }
     const m = addMerchant({ name, shopId, sources });
-    if (!m) return res.status(400).json({ ok: false, error: 'name required' });
+    if (!m) return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家' });
     res.json({ ok: true, merchant: m, merchants: listMerchants() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
@@ -1116,12 +1121,21 @@ app.put('/api/merchants/:id', (req, res) => {
   try {
     const id = req.params.id;
     const body = req.body || {};
+    const cur = listMerchants().find((x) => x.id === String(id));
+    if (!cur) return res.status(404).json({ ok: false, error: 'not found' });
     const fields = {};
     if (body.name !== undefined) fields.name = body.name;
     if (body.shopId !== undefined) fields.shopId = body.shopId;
     if (body.sources !== undefined) fields.sources = body.sources;
+    if (body.name !== undefined) {
+      const nn = String(body.name || '').trim();
+      if (!nn) return res.status(400).json({ ok: false, error: 'name required' });
+      if (isDuplicateMerchantName(nn, id)) {
+        return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家' });
+      }
+    }
     const m = updateMerchant(id, fields);
-    if (!m) return res.status(404).json({ ok: false, error: 'not found' });
+    if (!m) return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家' });
     res.json({ ok: true, merchant: m, merchants: listMerchants() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });

@@ -160,6 +160,19 @@ function normalizeMerchantSources(sources) {
   return out;
 }
 
+/** Trim + lowercase for uniqueness (Latin); CJK unchanged except trim. */
+function normalizeMerchantNameKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function merchantNameTaken(name, excludeId) {
+  const c = loadCatalog();
+  const key = normalizeMerchantNameKey(name);
+  if (!key) return false;
+  const ex = excludeId != null ? String(excludeId) : '';
+  return (c.merchants || []).some((x) => normalizeMerchantNameKey(x.name) === key && String(x.id) !== ex);
+}
+
 function listMerchants() {
   const c = loadCatalog();
   return (c.merchants || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
@@ -170,6 +183,7 @@ function addMerchant({ name, shopId, sources }) {
   if (!Array.isArray(c.merchants)) c.merchants = [];
   const n = String(name || '').trim().slice(0, 64);
   if (!n) return null;
+  if (merchantNameTaken(n, null)) return null;
   const id = 'm_' + crypto.randomBytes(6).toString('hex');
   const m = {
     id,
@@ -187,11 +201,19 @@ function updateMerchant(id, fields) {
   if (!Array.isArray(c.merchants)) c.merchants = [];
   const m = c.merchants.find((x) => x.id === String(id));
   if (!m) return null;
-  if (fields.name !== undefined) m.name = String(fields.name || '').trim().slice(0, 64);
+  if (fields.name !== undefined) {
+    const nn = String(fields.name || '').trim().slice(0, 64);
+    if (merchantNameTaken(nn, id)) return null;
+    m.name = nn;
+  }
   if (fields.shopId !== undefined) m.shopId = String(fields.shopId || '').trim().slice(0, 128);
   if (fields.sources !== undefined) m.sources = normalizeMerchantSources(fields.sources);
   saveCatalog(c);
   return m;
+}
+
+function isDuplicateMerchantName(name, excludeId) {
+  return merchantNameTaken(name, excludeId);
 }
 
 function deleteMerchant(id) {
@@ -220,4 +242,5 @@ module.exports = {
   addMerchant,
   updateMerchant,
   deleteMerchant,
+  isDuplicateMerchantName,
 };

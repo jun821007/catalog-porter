@@ -52,7 +52,7 @@
 
     #merchantModal { display: none; position: fixed; inset: 0; z-index: 105; align-items: center; justify-content: center; padding: 1rem; background: rgba(0,0,0,.45); }
     #merchantModal.open { display: flex !important; }
-    #merchantModal .merchant-panel { position: relative; z-index: 1; width: 100%; max-width: 28rem; max-height: 90vh; overflow-y: auto; }
+    #merchantModal .merchant-panel { position: relative; z-index: 1; width: 100%; max-width: 34rem; max-height: 90vh; overflow-y: auto; }
 
   </style>
 </head>
@@ -129,16 +129,26 @@
       <h2 id="merchantModalTitle" class="text-base font-semibold text-slate-800 mb-3">管理商家捷徑</h2>
       <div id="merchantList" class="text-sm space-y-2 mb-4 min-h-[2rem]"></div>
       <hr class="border-slate-200 my-3" />
-      <h3 class="text-sm font-medium text-slate-700 mb-2">新增商家</h3>
-      <label class="block text-xs text-slate-600 mb-1" for="newMerchantName">名稱</label>
+      <h3 id="merchantFormHeading" class="text-sm font-medium text-slate-700 mb-2">新增商家</h3>
+      <p class="text-xs text-slate-500 mb-3 leading-relaxed">只存常用相冊網址，不會寫入庫存。可分段貼上後按「加入此段」，最後按「儲存」。編輯並儲存時會覆寫整份網址清單。</p>
+      <label class="block text-xs text-slate-600 mb-1" for="newMerchantName">名稱（全站唯一）</label>
       <input id="newMerchantName" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" autocomplete="off" />
       <label class="block text-xs text-slate-600 mb-1" for="newMerchantShopId">shop_id（選填，備註用）</label>
       <input id="newMerchantShopId" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" placeholder="_ZsDj..." />
-      <label class="block text-xs text-slate-600 mb-1" for="newMerchantUrls">常用網址（一行一個）</label>
-      <textarea id="newMerchantUrls" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[100px]" placeholder="https://..." spellcheck="false"></textarea>
+      <label class="block text-xs text-slate-600 mb-1" for="merchantPasteInput">貼上相冊網址或含連結的文字／JSON</label>
+      <textarea id="merchantPasteInput" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[88px]" placeholder="https://... 或貼整段 JSON" spellcheck="false"></textarea>
+      <div class="flex flex-wrap gap-2 mt-2 mb-2">
+        <button type="button" id="btnMerchantPasteAdd" class="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-medium">加入此段</button>
+        <button type="button" id="btnMerchantStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空待加入</button>
+        <button type="button" id="btnMerchantNewMode" class="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-800 text-xs bg-violet-50 hidden">改為新增商家</button>
+      </div>
+      <div class="mb-2">
+        <span class="text-xs text-slate-600">已加入 <span id="merchantStagingCount">0</span> 個網址</span>
+        <div id="merchantStagingList" class="mt-2 flex flex-wrap gap-1.5 min-h-[1.5rem]"></div>
+      </div>
       <div class="flex gap-2 justify-end mt-4 flex-wrap">
         <button type="button" id="merchantModalClose" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white">關閉</button>
-        <button type="button" id="newMerchantSave" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">新增</button>
+        <button type="button" id="merchantFormSave" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">儲存</button>
       </div>
     </div>
   </div>
@@ -154,6 +164,8 @@
     let pendingImportSel = null;
 
     let merchantsCache = [];
+    let merchantEditId = null;
+    let merchantStagingUrls = [];
     async function refreshMerchantSelect() {
       const sel = document.getElementById('merchantSelect');
       const cur = sel.value;
@@ -216,7 +228,130 @@
       const idx = parseInt(ss.value, 10);
       if (!isNaN(idx) && sources[idx] && sources[idx].url) urlEl.value = sources[idx].url;
     }
+    function resetMerchantForm() {
+      merchantEditId = null;
+      merchantStagingUrls = [];
+      document.getElementById('newMerchantName').value = '';
+      document.getElementById('newMerchantShopId').value = '';
+      document.getElementById('merchantPasteInput').value = '';
+      document.getElementById('merchantFormHeading').textContent = '新增商家';
+      document.getElementById('btnMerchantNewMode').classList.add('hidden');
+      renderMerchantStaging();
+    }
+    function extractUrlsFromPaste(raw) {
+      const text = String(raw || '');
+      const seen = new Set();
+      const out = [];
+      function add(u) {
+        let s = String(u || '').trim().replace(/[\s，,;；]+$/g, '');
+        if (!/^https?:\/\//i.test(s)) return;
+        if (seen.has(s)) return;
+        seen.add(s);
+        out.push(s);
+      }
+      text.split(/\r?\n/).forEach((line) => add(line.trim()));
+      const re = /https?:\/\/[^\s"']+/gi;
+      let mm;
+      while ((mm = re.exec(text)) !== null) add(mm[0]);
+      if (text.indexOf('{') >= 0) {
+        try {
+          const j = JSON.parse(text);
+          const walk = (v) => {
+            if (typeof v === 'string' && /^https?:\/\//i.test(v.trim())) add(v.trim());
+            else if (Array.isArray(v)) v.forEach(walk);
+            else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+          };
+          walk(j);
+        } catch (_) {}
+      }
+      return out;
+    }
+    function renderMerchantStaging() {
+      const wrap = document.getElementById('merchantStagingList');
+      const cnt = document.getElementById('merchantStagingCount');
+      cnt.textContent = String(merchantStagingUrls.length);
+      wrap.innerHTML = '';
+      merchantStagingUrls.forEach((u, idx) => {
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1 max-w-full px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-xs text-slate-800';
+        const t = document.createElement('span');
+        t.className = 'truncate';
+        t.title = u;
+        t.textContent = u.length > 48 ? u.slice(0, 46) + '…' : u;
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'text-slate-500 hover:text-red-600 shrink-0';
+        x.textContent = '\u00d7';
+        x.onclick = () => {
+          merchantStagingUrls = merchantStagingUrls.filter((_, i) => i !== idx);
+          renderMerchantStaging();
+        };
+        chip.appendChild(t);
+        chip.appendChild(x);
+        wrap.appendChild(chip);
+      });
+    }
+    function addPasteToStaging() {
+      const raw = document.getElementById('merchantPasteInput').value;
+      const found = extractUrlsFromPaste(raw);
+      if (!found.length) {
+        alert('\u6b64\u6bb5\u672a\u8fa8\u8b58\u5230 http(s) \u7db2\u5740\uff0c\u8acb\u78ba\u8a8d\u683c\u5f0f');
+        return;
+      }
+      for (const u of found) {
+        if (merchantStagingUrls.indexOf(u) === -1) merchantStagingUrls.push(u);
+      }
+      document.getElementById('merchantPasteInput').value = '';
+      renderMerchantStaging();
+    }
+    function startEditMerchant(id) {
+      const m = merchantsCache.find((x) => x.id === id);
+      if (!m) return;
+      merchantEditId = id;
+      document.getElementById('newMerchantName').value = m.name || '';
+      document.getElementById('newMerchantShopId').value = m.shopId || '';
+      merchantStagingUrls = (m.sources || []).map((s) => s.url).filter(Boolean);
+      document.getElementById('merchantPasteInput').value = '';
+      document.getElementById('merchantFormHeading').textContent = '\u7de8\u8f2f\u5546\u5bb6';
+      document.getElementById('btnMerchantNewMode').classList.remove('hidden');
+      renderMerchantStaging();
+    }
+    async function saveMerchantForm() {
+      const name = document.getElementById('newMerchantName').value.trim();
+      const shopId = document.getElementById('newMerchantShopId').value.trim();
+      if (!name) { alert('\u8acb\u8f38\u5165\u5546\u5bb6\u540d\u7a31'); return; }
+      if (!merchantStagingUrls.length) {
+        alert('\u8acb\u81f3\u5c11\u52a0\u5165\u4e00\u500b\u7db2\u5740\uff08\u6309\u300c\u52a0\u5165\u6b64\u6bb5\u300d\u7d2f\u7a4d\uff09');
+        return;
+      }
+      const sources = merchantStagingUrls.map((u) => ({ url: u }));
+      const wasEdit = !!merchantEditId;
+      try {
+        let r;
+        if (merchantEditId) {
+          r = await fetch('/api/merchants/' + encodeURIComponent(merchantEditId), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, shopId: shopId || '', sources }),
+          });
+        } else {
+          r = await fetch('/api/merchants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, shopId: shopId || '', sources }),
+          });
+        }
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.message || j.error || '\u5132\u5b58\u5931\u6557');
+        if (!j.ok) throw new Error(j.message || j.error || '\u5132\u5b58\u5931\u6557');
+        resetMerchantForm();
+        await refreshMerchantSelect();
+        renderMerchantList();
+        alert(wasEdit ? '\u5df2\u5132\u5b58' : '\u5df2\u65b0\u589e');
+      } catch (e) { alert(e.message || '\u5132\u5b58\u5931\u6557'); }
+    }
     function openMerchantModal() {
+      resetMerchantForm();
       document.getElementById('merchantModal').classList.add('open');
       renderMerchantList();
     }
@@ -249,6 +384,12 @@
             renderMerchantList();
           } catch (e) { alert(e.message || '刪除失敗'); }
         };
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'text-xs text-violet-700 shrink-0 mr-1';
+        edit.textContent = '編輯';
+        edit.onclick = () => { startEditMerchant(m.id); };
+        row.appendChild(edit);
         row.appendChild(del);
         el.appendChild(row);
       });
@@ -536,25 +677,13 @@
     document.getElementById('btnMerchantManage').onclick = () => { openMerchantModal(); };
     document.getElementById('merchantModalClose').onclick = () => { closeMerchantModal(); };
     document.getElementById('merchantModal').onclick = (e) => { if (e.target.id === 'merchantModal') closeMerchantModal(); };
-    document.getElementById('newMerchantSave').onclick = async () => {
-      const name = document.getElementById('newMerchantName').value.trim();
-      const shopId = document.getElementById('newMerchantShopId').value.trim();
-      const raw = document.getElementById('newMerchantUrls').value;
-      const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-      if (!name) { alert('請輸入商家名稱'); return; }
-      if (!lines.length) { alert('請至少輸入一個網址'); return; }
-      try {
-        const r = await fetch('/api/merchants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, shopId: shopId || '', sources: lines.map((u) => ({ url: u })) }) });
-        const j = await r.json();
-        if (!j.ok) throw new Error(j.error || '新增失敗');
-        document.getElementById('newMerchantName').value = '';
-        document.getElementById('newMerchantShopId').value = '';
-        document.getElementById('newMerchantUrls').value = '';
-        await refreshMerchantSelect();
-        renderMerchantList();
-        alert('已新增');
-      } catch (e) { alert(e.message || '新增失敗'); }
+    document.getElementById('btnMerchantPasteAdd').onclick = () => { addPasteToStaging(); };
+    document.getElementById('btnMerchantStagingClear').onclick = () => {
+      merchantStagingUrls = [];
+      renderMerchantStaging();
     };
+    document.getElementById('btnMerchantNewMode').onclick = () => { resetMerchantForm(); };
+    document.getElementById('merchantFormSave').onclick = () => { void saveMerchantForm(); };
     refreshMerchantSelect();
   </script>
 </body>
