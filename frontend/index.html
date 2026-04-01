@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
@@ -84,7 +84,7 @@
           </select>
         </div>
       </div>
-      <p class="text-xs text-slate-500 mt-2">有商品快照時可不填下方網址，按「開始抓取」依關鍵字篩選快照（關鍵字可留空＝顯示全部）。無快照時請貼<strong>相冊頁</strong>網址做線上抓取。新增／編輯商家請至「管理商家」。</p>
+      <p class="text-xs text-slate-500 mt-2">有商品快照時可不填網址，按「開始抓取」依關鍵字篩選快照。無快照時會自動帶入「管理商家」所存相冊網址（略過圖片直連；多個時取第一個可抓取連結），再按「開始抓取」即可。新增／編輯請至「管理商家」。</p>
     </div>
     <div class="surface-card rounded-xl p-6 border mb-6">
       <h2 class="text-sm font-medium text-slate-800 mb-3">微商相冊網址抓取</h2>
@@ -143,6 +143,21 @@
       if (!k) return arr.slice();
       return arr.filter((it) => String(it.description || '').toLowerCase().indexOf(k) >= 0);
     }
+    function isUnusableScrapeUrl(u) {
+      const s = String(u || '').trim().toLowerCase();
+      if (!s) return false;
+      if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|#|$)/i.test(s)) return true;
+      if (/xcimg\.szwego\.com\/img\//i.test(s)) return true;
+      if (/\/img\/[a-f0-9]{6,}\//i.test(s) && /\.(jpg|jpeg|png)/i.test(s)) return true;
+      return false;
+    }
+    function firstScrapeableAlbumUrl(sources) {
+      const urls = (sources || []).map((s) => s && s.url).filter(Boolean);
+      for (let i = 0; i < urls.length; i++) {
+        if (!isUnusableScrapeUrl(urls[i])) return urls[i];
+      }
+      return '';
+    }
     async function loadMerchantsForList() {
       try {
         const r = await fetch("/api/merchants?_=" + Date.now(), { cache: "no-store" });
@@ -178,13 +193,17 @@
     }
     async function loadMerchantCatalog(mid) {
       if (!mid) return;
-      document.getElementById('url').value = '';
+      const urlEl = document.getElementById('url');
+      urlEl.value = '';
       try {
         const r = await fetch('/api/merchants/' + encodeURIComponent(mid) + '?_=' + Date.now(), { cache: 'no-store' });
         const j = await r.json();
         if (!r.ok || !j.ok || !j.merchant) throw new Error(j.message || j.error || '載入失敗');
-        const snap = j.merchant.catalogItems;
-        selectedMerchantLabel = (j.merchant.name || '').replace(/</g, '');
+        const m = j.merchant;
+        const snap = m.catalogItems;
+        const sourceList = m.sources || [];
+        const sourceUrls = sourceList.map((s) => s && s.url).filter(Boolean);
+        selectedMerchantLabel = (m.name || '').replace(/</g, '');
         if (Array.isArray(snap) && snap.length) {
           cachedMerchantSnapshot = snap.slice();
           items = snap.slice();
@@ -196,7 +215,16 @@
           cachedMerchantSnapshot = null;
           items = [];
           renderGrid();
-          statusEl.textContent = '「' + selectedMerchantLabel + '」尚無商品快照；請至「管理商家」貼 JSON 儲存，或於下方貼相冊頁網址線上抓取。';
+          const autoUrl = firstScrapeableAlbumUrl(sourceList);
+          if (autoUrl) {
+            urlEl.value = autoUrl;
+            const n = sourceUrls.length;
+            statusEl.textContent = '「' + selectedMerchantLabel + '」已從捷徑帶入相冊網址（' + (n > 1 ? '共 ' + n + ' 個，已選第一個可抓取連結' : '管理商家所存') + '）。可按「開始抓取」線上抓取。';
+          } else if (sourceUrls.length) {
+            statusEl.textContent = '「' + selectedMerchantLabel + '」在管理商家存的網址可能是圖片直連，無法自動帶入；請手動貼相冊頁網址。';
+          } else {
+            statusEl.textContent = '「' + selectedMerchantLabel + '」尚無商品快照與相冊網址；請至「管理商家」新增。';
+          }
           saveToStorage();
         }
       } catch (e) {
@@ -213,14 +241,6 @@
       document.getElementById('selCount').textContent = n;
       document.getElementById('btnImport').disabled = n === 0;
       updateFloatBtn();
-    }
-    function isUnusableScrapeUrl(u) {
-      const s = String(u || '').trim().toLowerCase();
-      if (!s) return false;
-      if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|#|$)/i.test(s)) return true;
-      if (/xcimg\.szwego\.com\/img\//i.test(s)) return true;
-      if (/\/img\/[a-f0-9]{6,}\//i.test(s) && /\.(jpg|jpeg|png)/i.test(s)) return true;
-      return false;
     }
     function saveToStorage() {
       try {
