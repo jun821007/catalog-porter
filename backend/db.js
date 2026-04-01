@@ -16,9 +16,14 @@ function getDataDir() {
 function loadCatalog() {
   const { catalogPath } = getDataDir();
   if (!fs.existsSync(catalogPath)) {
-    return { nextId: 1, items: [], shares: {} };
+    return { nextId: 1, items: [], shares: {}, categoryLabels: [] };
   }
-  return JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+  const c = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+  if (!Array.isArray(c.categoryLabels)) {
+    c.categoryLabels = [];
+    saveCatalog(c);
+  }
+  return c;
 }
 
 function saveCatalog(c) {
@@ -61,14 +66,32 @@ function listItems(search, category) {
   return items;
 }
 
+/** 分類選項：先建清單 categoryLabels + 商品實際用過的分類（避免舊資料漏列） */
 function listCategoryLabels() {
   const c = loadCatalog();
   const set = new Set();
+  for (const x of c.categoryLabels || []) {
+    const t = String(x).trim();
+    if (t) set.add(t);
+  }
   for (const it of c.items || []) {
     const t = String(it.category || '').trim();
     if (t) set.add(t);
   }
   return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+}
+
+function addCategoryLabel(name) {
+  const c = loadCatalog();
+  const n = String(name || '').trim().slice(0, 64);
+  if (!n) return false;
+  if (!Array.isArray(c.categoryLabels)) c.categoryLabels = [];
+  if (!c.categoryLabels.includes(n)) {
+    c.categoryLabels.push(n);
+    c.categoryLabels.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+    saveCatalog(c);
+  }
+  return true;
 }
 
 function createShare(itemIds) {
@@ -123,6 +146,7 @@ module.exports = {
   insertItem,
   listItems,
   listCategoryLabels,
+  addCategoryLabel,
   createShare,
   getShareItems,
   getItem,

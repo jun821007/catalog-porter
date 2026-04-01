@@ -95,8 +95,6 @@
       <p class="text-xs text-slate-500 mt-1 mb-4">即將入庫 <span id="importCatCount">0</span> 項</p>
       <label for="importCatSelect" class="block text-sm text-slate-600 mb-1">分類</label>
       <select id="importCatSelect" class="field w-full border rounded-lg px-3 py-2 mb-3 text-sm"></select>
-      <label for="importCatNew" class="block text-sm text-slate-600 mb-1">新增分類（選填，填寫則優先使用）</label>
-      <input id="importCatNew" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" placeholder="輸入新分類名稱" autocomplete="off" />
       <p class="text-xs text-slate-400 mb-4 leading-relaxed">預設可選「未分類」。JSON 單筆若已有 category 欄位，仍以該筆為準。</p>
       <div class="flex gap-2 justify-end">
         <button type="button" id="importCatCancel" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white hover:bg-slate-50">取消</button>
@@ -207,6 +205,8 @@
         const j = await r.json();
         if (j.ok && Array.isArray(j.categories)) {
           j.categories.forEach((c) => {
+            if (!c || c === '未分類') return;
+            if ([...sel.options].some((opt) => opt.value === c)) return;
             const o = document.createElement('option');
             o.value = c;
             o.textContent = c;
@@ -221,7 +221,6 @@
     function openImportModal(sel) {
       pendingImportSel = sel;
       document.getElementById('importCatCount').textContent = String(sel.length);
-      document.getElementById('importCatNew').value = '';
       refreshImportCategorySelect().then(() => {
         document.getElementById('importCatModal').classList.add('open');
       });
@@ -231,8 +230,6 @@
       pendingImportSel = null;
     }
     function resolveImportCategory() {
-      const neu = document.getElementById('importCatNew').value.trim();
-      if (neu) return neu;
       return document.getElementById('importCatSelect').value;
     }
 

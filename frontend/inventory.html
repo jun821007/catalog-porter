@@ -24,15 +24,10 @@
     .text-slate-400, #countBadge { color: #64748b !important; }
     .text-slate-500 { color: #64748b !important; }
     .text-amber-400 { color: #1e40af !important; }
-    #lightboxCloseTop { position: absolute; top: 0.75rem; right: 0.75rem; width: 2.2rem; height: 2.2rem; border: 0; border-radius: 9999px; background: rgba(15, 23, 42, 0.72); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
-    #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
-    #lightbox.show { display: flex; }
-    #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
-    #lightbox .desc { max-width: 90vw; margin-top: 0.5rem; text-align: left; font-size: 0.875rem; color: #cbd5e1; }
     #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.5rem 1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; }
     #lightbox .nav-btn:hover { background: rgba(255,255,255,.35); }
-    #lightbox .nav-prev { left: 1rem; }
-    #lightbox .nav-next { right: 1rem; }
+    .lightbox-inner .nav-prev { left: 0.25rem; }
+    .lightbox-inner .nav-next { right: 0.25rem; }
     #lightbox .nav-dots { display: flex; gap: 0.25rem; margin-top: 0.5rem; justify-content: center; }
     #lightbox .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.4); cursor: pointer; }
     #lightbox .nav-dot.active { background: #fff; }
@@ -42,6 +37,16 @@
     #descEditModal.show { display: flex; }
     #descEditBackdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
     #descEditPanel { position: relative; z-index: 1; width: 100%; max-width: 32rem; max-height: 90vh; display: flex; flex-direction: column; }
+    #catFilter { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
+    #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.88); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.5rem; align-items: flex-start; justify-content: center; }
+    #lightbox.show { display: flex; }
+    .lightbox-inner { position: relative; width: 100%; max-width: min(100vw - 1rem, 26rem); margin: 0 auto; min-height: min-content; display: flex; flex-direction: column; align-items: stretch; padding: 2.5rem 0.25rem 1rem; }
+    #lightboxCloseTop { position: absolute; top: 0.2rem; right: 0.2rem; z-index: 30; width: 2.2rem; height: 2.2rem; border: 0; border-radius: 9999px; background: rgba(15, 23, 42, 0.72); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+    .lightbox-img-wrap { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; max-height: min(48vh, 380px); }
+    #lightbox img { max-width: 100%; max-height: min(48vh, 380px); width: auto; height: auto; object-fit: contain; }
+    #lightbox .nav-dots { display: none !important; }
+    #lightbox .desc { flex: 0 1 auto; min-height: 0; max-height: min(42vh, 300px); overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; margin-top: 0.5rem; padding: 0.35rem 0.25rem; box-sizing: border-box; text-align: left; font-size: 0.875rem; color: #cbd5e1; white-space: pre-wrap; }
+    #shareLinkBtn { max-width: 100%; word-break: break-all; }
     .descPreview:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
   </style>
 </head>
@@ -65,12 +70,12 @@
       </select>
     </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
+      <button type="button" id="btnAddCategory" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-medium text-white text-sm">新增分類</button>
       <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>生成分享連結</button>
       <button id="btnBatchDel" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>批量刪除</button>
       <button id="btnSelectAll" class="text-slate-400 hover:text-white text-sm underline">全選</button>
       <button id="btnSelectNone" class="text-slate-400 hover:text-white text-sm underline">取消全選</button>
-      <span id="shareOut" class="text-sm text-emerald-400 break-all"></span>
-      <button id="btnCopyShare" class="hidden bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm">&#35079;&#35069;</button>
+      <button type="button" id="shareLinkBtn" class="hidden text-left px-3 py-2 rounded-lg bg-violet-100 text-violet-900 text-sm font-medium border border-violet-200 hover:bg-violet-200 max-w-full"></button>
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
     <details class="mt-6 text-xs text-slate-500" id="debugPanel">
@@ -79,11 +84,13 @@
     </details>
   </main>
   <div id="lightbox" role="dialog" aria-modal="true">
-    <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">‹ 上一張</button>
-    <button type="button" class="nav-btn nav-next" id="lightboxNext" style="display:none">下一張 ›</button>
-    <div class="flex flex-col items-center relative">
-      <button type="button" id="lightboxCloseTop" aria-label="Close">&times;</button>
-      <img id="lightboxImg" alt="預覽" />
+    <div class="lightbox-inner" id="lightboxInner">
+      <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">‹ 上一張</button>
+      <button type="button" class="nav-btn nav-next" id="lightboxNext" style="display:none">下一張 ›</button>
+      <button type="button" id="lightboxCloseTop" aria-label="關閉">&times;</button>
+      <div class="lightbox-img-wrap">
+        <img id="lightboxImg" alt="預覽" />
+      </div>
       <div id="lightboxNav" class="nav-dots"></div>
       <div id="lightboxDesc" class="desc"></div>
     </div>
@@ -93,7 +100,7 @@
     <div id="descEditPanel" class="bg-slate-900 border border-slate-600 rounded-lg shadow-xl p-4">
       <div id="descEditTitle" class="text-sm text-slate-300 mb-2">編輯描述與分類</div>
       <label for="descEditCat" class="block text-xs text-slate-500 mb-1">分類</label>
-      <input type="text" id="descEditCat" class="w-full mb-2 bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-slate-200 text-sm" placeholder="留白則為未分類" autocomplete="off" />
+      <select id="descEditCat" class="w-full mb-2 bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-slate-200 text-sm"></select>
       <p class="text-xs text-slate-500 mb-2 leading-relaxed">儲存時，描述會經伺服器與入庫相同規則處理：簡轉繁、移除文案中獨立的 p400、P411 等批發價標記。</p>
       <textarea id="descEditTa" class="w-full min-h-[220px] bg-slate-800 border border-slate-600 rounded p-2 text-slate-200 text-sm" autocomplete="off"></textarea>
       <div class="flex gap-2 mt-3 justify-end flex-shrink-0">
@@ -141,27 +148,22 @@
       const firstUrl = lightboxImgs.length ? toFullUrl(lightboxImgs[0]) : "";
       lightboxImg.src = firstUrl;
       preloadImage(firstUrl);
-      lightboxDesc.textContent = (lightboxImgs.length > 1 ? "(" + (lightboxIdx + 1) + "/" + lightboxImgs.length + ") " : "") + lightboxBaseDesc;
+      lightboxDesc.textContent = lightboxBaseDesc + "";
       lightboxPrev.style.display = lightboxImgs.length > 1 ? "block" : "none";
       lightboxNext.style.display = lightboxImgs.length > 1 ? "block" : "none";
       lightboxNav.innerHTML = "";
-      for (let i = 0; i < lightboxImgs.length; i++) {
-        const dot = document.createElement("div");
-        dot.className = "nav-dot" + (i === 0 ? " active" : "");
-        dot.onclick = () => lightboxShow(i);
-        lightboxNav.appendChild(dot);
-      }
       prefetchNeighbors(0);
       lightbox.classList.add("show");
     }
     function lightboxShow(i) {
-      if (i < 0 || i >= lightboxImgs.length) return;
+      if (!lightboxImgs.length) return;
+      const n = lightboxImgs.length;
+      i = ((i % n) + n) % n;
       lightboxIdx = i;
       const curUrl = toFullUrl(lightboxImgs[i]);
       lightboxImg.src = curUrl;
       preloadImage(curUrl);
-      lightboxNav.querySelectorAll(".nav-dot").forEach((d,j) => d.classList.toggle("active", j===i));
-      lightboxDesc.textContent = (lightboxImgs.length > 1 ? "(" + (lightboxIdx + 1) + "/" + lightboxImgs.length + ") " : "") + lightboxBaseDesc;
+      lightboxDesc.textContent = lightboxBaseDesc;
       prefetchNeighbors(i);
     }
     function toFullUrl(path) { if (!path) return ""; if (path.startsWith("http")) return path; return getApiBase() + (path.startsWith("/") ? path : "/" + path); }
@@ -178,14 +180,43 @@
         if (!sel || !j.categories) return;
         const cur = sel.value;
         while (sel.options.length > 2) sel.remove(2);
+        const seen = new Set();
         for (const c of j.categories) {
+          const label = String(c || "").trim();
+          if (!label || seen.has(label)) continue;
+          if (label === "未分類") continue;
+          seen.add(label);
           const o = document.createElement("option");
-          o.value = c;
-          o.textContent = c;
+          o.value = label;
+          o.textContent = label;
           sel.appendChild(o);
         }
         sel.value = [...sel.options].some((o) => o.value === cur) ? cur : "";
       } catch (_) {}
+    }
+    async function fillDescEditCategorySelect(selectedRaw) {
+      const sel = document.getElementById("descEditCat");
+      sel.innerHTML = "";
+      const addOpt = (value, label) => {
+        const o = document.createElement("option");
+        o.value = value;
+        o.textContent = label;
+        sel.appendChild(o);
+      };
+      addOpt("", "未分類");
+      try {
+        const r = await fetch("/api/categories?_=" + Date.now(), { cache: "no-store" });
+        const j = await r.json();
+        const seen = new Set([""]);
+        for (const c of (j.categories || [])) {
+          const v = String(c || "").trim();
+          if (!v || seen.has(v)) continue;
+          seen.add(v);
+          addOpt(v, v);
+        }
+      } catch (_) {}
+      const cat = selectedRaw && String(selectedRaw).trim() ? String(selectedRaw).trim() : "";
+      sel.value = [...sel.options].some((o) => o.value === cat) ? cat : "";
     }
     async function load() {
       const d = document.getElementById("debugOut");
@@ -221,7 +252,7 @@
         return;
       }
       grid.innerHTML = "";
-      document.getElementById("btnCopyShare").classList.add("hidden");
+      document.getElementById("shareLinkBtn").classList.add("hidden");
       if (items.length === 0) {
         const empty = document.createElement("div");
         empty.className = "col-span-full text-center py-12 text-slate-400";
@@ -232,14 +263,10 @@
       items.forEach(it => {
         const card = document.createElement("div");
         card.className = "bg-slate-900 border border-slate-800 rounded-lg overflow-hidden";
-        const shortDesc = trunc(it.description, 80);
-        const imgs = (it.image_paths && it.image_paths.length) ? it.image_paths.length : 1;
-        const badge = imgs > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + imgs + '\u5f35</span>' : "";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
         const catStr = (it.category && String(it.category).trim()) ? String(it.category).trim() : "未分類";
-        const catBadge = '<span class="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-600/90 text-white max-w-[7rem] truncate z-[1]" title="' + esc(catStr) + '">' + esc(catStr) + '</span>';
-        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '">' + catBadge + '<img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" />' + badge + '</div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center justify-between"><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
+        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" /></div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center gap-2 flex-wrap"><span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/90 text-white max-w-[45%] truncate" title="' + esc(catStr) + '">' + esc(catStr) + '</span><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
         grid.appendChild(card);
         const prevEl = card.querySelector(".descPreview");
         if (prevEl) prevEl.textContent = it.description || "";
@@ -251,11 +278,11 @@
           if (it) openLightbox(it);
         };
       });
-      function openDescEditModal(id) {
+      async function openDescEditModal(id) {
         descEditId = Number(id);
         const it = items.find((i) => i.id === descEditId);
         document.getElementById("descEditTa").value = it ? (it.description || "") : "";
-        document.getElementById("descEditCat").value = it && it.category ? String(it.category) : "";
+        await fillDescEditCategorySelect(it && it.category ? it.category : "");
         document.getElementById("descEditModal").classList.add("show");
         setTimeout(() => document.getElementById("descEditTa").focus(), 50);
       }
@@ -264,12 +291,12 @@
         document.getElementById("descEditModal").classList.remove("show");
       }
       grid.querySelectorAll(".btnOpenEdit").forEach((btn) => {
-        btn.onclick = (e) => { e.stopPropagation(); openDescEditModal(btn.dataset.id); };
+        btn.onclick = (e) => { e.stopPropagation(); void openDescEditModal(btn.dataset.id); };
       });
       grid.querySelectorAll(".descPreview").forEach((el) => {
-        el.onclick = (e) => { e.stopPropagation(); openDescEditModal(el.dataset.id); };
+        el.onclick = (e) => { e.stopPropagation(); void openDescEditModal(el.dataset.id); };
         el.onkeydown = (e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDescEditModal(el.dataset.id); }
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openDescEditModal(el.dataset.id); }
         };
       });
       document.getElementById("descEditCancel").onclick = closeDescEditModal;
@@ -322,6 +349,21 @@
       else if (e.key === "Escape") { lightbox.classList.remove("show"); e.preventDefault(); }
     });
     document.getElementById("btnSearch").onclick = load;
+    document.getElementById("btnAddCategory").onclick = async () => {
+      const name = prompt("新分類名稱：");
+      if (name == null) return;
+      const tname = name.trim();
+      if (!tname) return;
+      try {
+        const r = await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: tname }) });
+        const j = await r.json();
+        if (!j.ok) { alert(j.error || "新增失敗"); return; }
+        await refreshCategoryOptions();
+        alert("已新增分類");
+      } catch (e) {
+        alert(e.message || "新增失敗");
+      }
+    };
     document.getElementById("catFilter").onchange = load;
     document.getElementById("q").onkeydown = e => { if (e.key === "Enter") load(); };
     document.getElementById("btnShare").onclick = async () => {
@@ -329,11 +371,16 @@
       const r = await fetch("/api/share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemIds: ids }) });
       const j = await r.json();
       if (!j.ok) { alert(j.error); return; }
-      document.getElementById("shareOut").textContent = j.url;
-      document.getElementById("btnCopyShare").classList.remove("hidden");
+      const shareLinkBtn = document.getElementById("shareLinkBtn");
+      shareLinkBtn.textContent = j.url;
+      shareLinkBtn.dataset.url = j.url;
+      shareLinkBtn.title = "點擊複製連結";
+      shareLinkBtn.classList.remove("hidden");
     };
-    document.getElementById("btnCopyShare").onclick = async () => {
-      const url = document.getElementById("shareOut").textContent.trim();
+    document.getElementById("shareLinkBtn").onclick = async (ev) => {
+      ev.preventDefault();
+      const el = document.getElementById("shareLinkBtn");
+      const url = (el.dataset.url || el.textContent || "").trim();
       if (!url) return;
       try {
         await navigator.clipboard.writeText(url);
@@ -353,6 +400,8 @@
       load();
     };
     document.getElementById("lightboxCloseTop").onclick = () => lightbox.classList.remove("show");
+    const lightboxInner = document.getElementById("lightboxInner");
+    if (lightboxInner) lightboxInner.addEventListener("click", (e) => e.stopPropagation());
     lightbox.onclick = (e) => { if (e.target === lightbox) lightbox.classList.remove("show"); };
     load();
   </script>

@@ -6,18 +6,18 @@
   <title>ZJ&#31934;&#21697;&#21253;&#21253;&#34915;&#26381;&#33109;&#37686;</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 1rem; }
+    #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.88); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.5rem; align-items: flex-start; justify-content: center; }
     #lightbox.show { display: flex; }
-    #lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; }
-    #lightbox .desc { max-width: 90vw; margin-top: 0.5rem; text-align: left; font-size: 0.95rem; color: #e2e8f0; }
+    .lightbox-inner { position: relative; width: 100%; max-width: min(100vw - 1rem, 26rem); margin: 0 auto; min-height: min-content; display: flex; flex-direction: column; align-items: stretch; padding: 2.5rem 0.25rem 1rem; }
+    #lightboxCloseTop { position: absolute; top: 0.2rem; right: 0.2rem; z-index: 30; width: 2.2rem; height: 2.2rem; border: 0; border-radius: 9999px; background: rgba(15, 23, 42, 0.72); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+    .lightbox-img-wrap { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; max-height: min(48vh, 380px); }
+    #lightbox img { max-width: 100%; max-height: min(48vh, 380px); width: auto; height: auto; object-fit: contain; }
     #lightbox .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); padding: 0.5rem 1rem; background: rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; color: #fff; user-select: none; z-index: 10; border: 0; }
     #lightbox .nav-btn:hover { background: rgba(255,255,255,.35); }
-    #lightbox .nav-prev { left: 1rem; }
-    #lightbox .nav-next { right: 1rem; }
-    #lightbox .nav-dots { display: flex; gap: 0.25rem; margin-top: 0.5rem; justify-content: center; }
-    #lightbox .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.4); cursor: pointer; }
-    #lightbox .nav-dot.active { background: #fff; }
-    #lightboxCloseTop { position: absolute; top: 0.75rem; right: 0.75rem; width: 2.2rem; height: 2.2rem; border: 0; border-radius: 9999px; background: rgba(15, 23, 42, 0.72); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+    .lightbox-inner .nav-prev { left: 0.25rem; }
+    .lightbox-inner .nav-next { right: 0.25rem; }
+    #lightbox .nav-dots { display: none !important; }
+    #lightbox .desc { flex: 0 1 auto; min-height: 0; max-height: min(42vh, 300px); overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; margin-top: 0.5rem; padding: 0.35rem 0.25rem; box-sizing: border-box; text-align: left; font-size: 0.95rem; color: #e2e8f0; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
@@ -28,11 +28,13 @@
   </main>
 
   <div id="lightbox" role="dialog" aria-modal="true">
-    <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">Prev</button>
-    <button type="button" class="nav-btn nav-next" id="lightboxNext" style="display:none">Next</button>
-    <div class="flex flex-col items-center relative">
-      <button type="button" id="lightboxCloseTop" aria-label="Close">&times;</button>
-      <img id="lightboxImg" alt="Preview" />
+    <div class="lightbox-inner" id="lightboxInner">
+      <button type="button" class="nav-btn nav-prev" id="lightboxPrev" style="display:none">‹ 上一張</button>
+      <button type="button" class="nav-btn nav-next" id="lightboxNext" style="display:none">下一張 ›</button>
+      <button type="button" id="lightboxCloseTop" aria-label="關閉">&times;</button>
+      <div class="lightbox-img-wrap">
+        <img id="lightboxImg" alt="預覽" />
+      </div>
       <div id="lightboxNav" class="nav-dots"></div>
       <div id="lightboxDesc" class="desc"></div>
     </div>
@@ -71,13 +73,14 @@
       preloadImage(toFullUrl(lightboxImgs[(idx - 1 + n) % n]));
     }
     function lightboxShow(i) {
-      if (i < 0 || i >= lightboxImgs.length) return;
+      if (!lightboxImgs.length) return;
+      const n = lightboxImgs.length;
+      i = ((i % n) + n) % n;
       lightboxIdx = i;
       const url = toFullUrl(lightboxImgs[i]);
       lightboxImg.src = url;
       preloadImage(url);
-      lightboxNav.querySelectorAll('.nav-dot').forEach((d, j) => d.classList.toggle('active', j === i));
-      lightboxDesc.textContent = (lightboxImgs.length > 1 ? '(' + (lightboxIdx + 1) + '/' + lightboxImgs.length + ') ' : '') + lightboxBaseDesc;
+      lightboxDesc.textContent = lightboxBaseDesc;
       prefetchNeighbors(i);
     }
     function openLightbox(it) {
@@ -85,12 +88,6 @@
       lightboxImgs = (Array.isArray(paths) && paths.length) ? paths : (it.image_path ? [it.image_path] : []);
       lightboxBaseDesc = it.description || '';
       lightboxNav.innerHTML = '';
-      for (let i = 0; i < lightboxImgs.length; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
-        dot.onclick = () => lightboxShow(i);
-        lightboxNav.appendChild(dot);
-      }
       lightboxPrev.style.display = lightboxImgs.length > 1 ? 'block' : 'none';
       lightboxNext.style.display = lightboxImgs.length > 1 ? 'block' : 'none';
       lightboxShow(0);
@@ -111,8 +108,7 @@
         d.className = 'bg-slate-900 border border-slate-800 rounded-lg overflow-hidden';
         const paths = (Array.isArray(it.image_paths) && it.image_paths.length) ? it.image_paths : (it.image_path ? [it.image_path] : []);
         const first = paths.length ? toFullUrl(paths[0]) : '';
-        const badge = paths.length > 1 ? '<span class="absolute bottom-1 right-1 text-xs bg-black/60 px-1 rounded">' + paths.length + ' imgs</span>' : '';
-        d.innerHTML = '<div class="aspect-square bg-slate-800 relative cursor-pointer share-preview"><img class="w-full h-full object-cover" src="' + first + '" />' + badge + '</div><div class="p-2 text-xs text-slate-300">' + (it.description || '').replace(/</g,'&lt;') + '</div>';
+        d.innerHTML = '<div class="aspect-square bg-slate-800 relative cursor-pointer share-preview"><img class="w-full h-full object-cover" src="' + first + '" /></div><div class="p-2 text-xs text-slate-300">' + (it.description || '').replace(/</g,'&lt;') + '</div>';
         d.querySelector('.share-preview').onclick = () => openLightbox(it);
         grid.appendChild(d);
       });
@@ -121,6 +117,8 @@
     lightboxPrev.onclick = () => lightboxShow(lightboxIdx - 1);
     lightboxNext.onclick = () => lightboxShow(lightboxIdx + 1);
     document.getElementById('lightboxCloseTop').onclick = () => lightbox.classList.remove('show');
+    const lightboxInner = document.getElementById('lightboxInner');
+    if (lightboxInner) lightboxInner.addEventListener('click', (e) => e.stopPropagation());
     lightbox.onclick = (e) => { if (e.target === lightbox) lightbox.classList.remove('show'); };
     document.addEventListener('keydown', (e) => {
       if (!lightbox.classList.contains('show')) return;

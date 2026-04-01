@@ -11,6 +11,7 @@ const {
   insertItem,
   listItems,
   listCategoryLabels,
+  addCategoryLabel,
   createShare,
   getShareItems,
   getItem,
@@ -1065,6 +1066,18 @@ app.get('/api/categories', (req, res) => {
     const categories = listCategoryLabels();
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, categories });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
+
+app.post('/api/categories', (req, res) => {
+  try {
+    const raw = req.body && req.body.name;
+    const name = normalizeCategory(typeof raw === 'string' ? raw : '');
+    if (!name) return res.status(400).json({ ok: false, error: 'name required' });
+    addCategoryLabel(name);
+    res.json({ ok: true, categories: listCategoryLabels() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }
