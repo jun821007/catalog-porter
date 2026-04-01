@@ -1,7 +1,8 @@
 ﻿const http = require("http");
 function req(method, path, body) {
   return new Promise((resolve, reject) => {
-    const o = { hostname: "127.0.0.1", port: 34568, path, method, headers: { "Content-Type": "application/json" } };
+    const port = Number(process.env.PORT || 3000);
+    const o = { hostname: "127.0.0.1", port, path, method, headers: { "Content-Type": "application/json" } };
     const r = http.request(o, (res) => {
       let d = "";
       res.on("data", (c) => (d += c));
@@ -40,3 +41,4 @@ function req(method, path, body) {
   console.error(e);
   process.exit(1);
 });
+
