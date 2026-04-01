@@ -160,6 +160,25 @@ function normalizeMerchantSources(sources) {
   return out;
 }
 
+function normalizeCatalogItems(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const max = 8000;
+  for (let i = 0; i < raw.length && out.length < max; i++) {
+    const it = raw[i];
+    if (!it || typeof it !== 'object') continue;
+    const imageUrls = Array.isArray(it.imageUrls) ? it.imageUrls.filter(Boolean).map(String) : [];
+    let imageUrl = it.imageUrl ? String(it.imageUrl) : '';
+    if (!imageUrl && imageUrls.length) imageUrl = imageUrls[0];
+    if (!imageUrl) continue;
+    const description = String(it.description || '').slice(0, 4000);
+    const row = { description, imageUrl, imageUrls: imageUrls.length ? imageUrls : [imageUrl] };
+    if (it.category != null && String(it.category).trim() !== '') row.category = String(it.category).trim().slice(0, 64);
+    out.push(row);
+  }
+  return out;
+}
+
 /** Trim + lowercase for uniqueness (Latin); CJK unchanged except trim. */
 function normalizeMerchantNameKey(name) {
   return String(name || '').trim().toLowerCase();
@@ -178,7 +197,17 @@ function listMerchants() {
   return (c.merchants || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
 }
 
-function addMerchant({ name, shopId, sources }) {
+function listMerchantsForApi() {
+  return listMerchants().map((m) => {
+    const n = Array.isArray(m.catalogItems) ? m.catalogItems.length : 0;
+    const o = { ...m };
+    delete o.catalogItems;
+    o.catalogItemCount = n;
+    return o;
+  });
+}
+
+function addMerchant({ name, shopId, sources, catalogItems }) {
   const c = loadCatalog();
   if (!Array.isArray(c.merchants)) c.merchants = [];
   const n = String(name || '').trim().slice(0, 64);
@@ -190,6 +219,7 @@ function addMerchant({ name, shopId, sources }) {
     name: n,
     shopId: shopId != null ? String(shopId).trim().slice(0, 128) : '',
     sources: normalizeMerchantSources(sources),
+    catalogItems: normalizeCatalogItems(catalogItems),
   };
   c.merchants.push(m);
   saveCatalog(c);
@@ -208,8 +238,14 @@ function updateMerchant(id, fields) {
   }
   if (fields.shopId !== undefined) m.shopId = String(fields.shopId || '').trim().slice(0, 128);
   if (fields.sources !== undefined) m.sources = normalizeMerchantSources(fields.sources);
+  if (fields.catalogItems !== undefined) m.catalogItems = normalizeCatalogItems(fields.catalogItems);
   saveCatalog(c);
   return m;
+}
+
+function getMerchant(id) {
+  const c = loadCatalog();
+  return (c.merchants || []).find((x) => String(x.id) === String(id)) || null;
 }
 
 function isDuplicateMerchantName(name, excludeId) {
@@ -239,6 +275,8 @@ module.exports = {
   updateItem,
   updateItemDescription,
   listMerchants,
+  listMerchantsForApi,
+  getMerchant,
   addMerchant,
   updateMerchant,
   deleteMerchant,

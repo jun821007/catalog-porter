@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>管理商家</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { background: #f3f6fb !important; color: #0f172a !important; }
+    header { background: #ffffff !important; border-bottom-color: #e2e8f0 !important; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
+    header h1 { display: none !important; }
+    header nav a:nth-child(1) { color: #475569 !important; }
+    header nav a:nth-child(2) { color: #475569 !important; }
+    header nav a:nth-child(3) { color: #1e40af !important; }
+    .surface-card {
+      background: #ffffff !important;
+      border-color: #dbe3ef !important;
+      box-shadow: 0 8px 24px rgba(15,23,42,.06);
+      color: #0f172a !important;
+    }
+    .surface-card label { color: #475569 !important; }
+    .surface-card .field {
+      color: #0f172a !important;
+      background-color: #f8fafc !important;
+      border-color: #cbd5e1 !important;
+    }
+    #status { color: #334155 !important; font-weight: 500; }
+    #grid > div { background: #ffffff !important; border-color: #e2e8f0 !important; box-shadow: 0 2px 12px rgba(15,23,42,.05); }
+    #grid .grid-desc { color: #334155 !important; }
+    #grid .thumb-bg { background: #f1f5f9 !important; }
+    #floatImport { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 40; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #059669, #10b981); color: white; font-weight: 600; font-size: 0.875rem; box-shadow: 0 4px 14px rgba(5,150,105,.4); display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; transition: transform .2s, box-shadow .2s; }
+    #floatImport:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(5,150,105,.5); }
+    #floatImport:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    #url, #keyword { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
+    #url::placeholder, #keyword::placeholder { color: #64748b; }
+    #btnFetch { background: #2563eb !important; color: #fff !important; }
+    #btnFetch:hover { background: #1d4ed8 !important; }
+    #btnImport { background: #059669 !important; color: #fff !important; }
+    #btnImport:hover { background: #047857 !important; }
+    #btnAll, #btnNone { background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1; padding: 0.35rem 0.6rem; border-radius: .5rem; }
+    #btnAll:hover, #btnNone:hover { background: #f8fafc !important; color: #0f172a !important; }
+    .text-slate-400 { color: #64748b !important; }
+    .text-slate-300 { color: #334155 !important; }
+    #jsonPaste { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
+    #jsonPanel summary { color: #334155 !important; }
+    #jsonPanel .json-hint { color: #64748b !important; }
+    #btnParseJson { background: #7c3aed !important; color: #fff !important; }
+    #btnParseJson:hover { background: #6d28d9 !important; }
+    #jsonPanel code { background: #f1f5f9 !important; color: #334155 !important; }
+    #importCatModal { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
+    #importCatModal.open { display: flex !important; }
+    #importCatModal .panel { position: relative; z-index: 1; width: 100%; max-width: 22rem; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="border-b border-slate-200 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
+    <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
+    <nav class="flex gap-3 text-sm">
+      <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
+      <a href="/inventory" class="text-slate-400 hover:text-white">我的庫存</a>
+      <a href="/merchants" class="text-amber-300 font-medium">管理商家</a>
+    </nav>
+  </header>
+  <main class="max-w-7xl mx-auto p-4">
+    <div class="surface-card rounded-xl p-6 border mb-6">
+      <h2 class="text-lg font-semibold text-slate-800 mb-2">商家捷徑</h2>
+      <p class="text-xs text-slate-500 mb-4">存於伺服器；名稱全站唯一。相冊網址與下方 JSON 商品快照一併儲存，不會自動入庫。首頁「選商家」會載入該快照供勾選入庫。可分段貼網址後按「加入此段」，最後按「儲存」。</p>
+      <div id="merchantList" class="text-sm space-y-2 mb-4 min-h-[2rem]"></div>
+      <hr class="border-slate-200 my-3" />
+      <h3 id="merchantFormHeading" class="text-sm font-medium text-slate-700 mb-2">新增商家</h3>
+      <label class="block text-xs text-slate-600 mb-1" for="newMerchantName">名稱（全站唯一）</label>
+      <input id="newMerchantName" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" autocomplete="off" />
+      <label class="block text-xs text-slate-600 mb-1" for="merchantPasteInput">貼上相冊網址或含連結的文字／JSON</label>
+      <textarea id="merchantPasteInput" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[88px]" placeholder="https://... 或貼整段 JSON" spellcheck="false"></textarea>
+      <div class="flex flex-wrap gap-2 mt-2 mb-2">
+        <button type="button" id="btnMerchantPasteAdd" class="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-medium">加入此段</button>
+        <button type="button" id="btnMerchantStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空待加入</button>
+        <button type="button" id="btnMerchantNewMode" class="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-800 text-xs bg-violet-50 hidden">改為新增商家</button>
+      </div>
+      <div class="mb-2">
+        <span class="text-xs text-slate-600">已加入 <span id="merchantStagingCount">0</span> 個網址</span>
+        <div id="merchantStagingList" class="mt-2 flex flex-wrap gap-1.5 min-h-[1.5rem]"></div>
+      </div>
+      <div class="flex gap-2 justify-end mt-4 flex-wrap">
+        <button type="button" id="merchantFormSave" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">儲存</button>
+      </div>
+    </div>
+    <p id="status" class="text-sm text-slate-500 mb-3 min-h-[1.25rem]"></p>
+    <details id="jsonPanel" class="surface-card rounded-xl p-6 border mb-6">
+      <summary class="cursor-pointer text-sm font-medium select-none">&#36028;&#19978;&#24494;&#21830;&#30456;&#20874; JSON&#65288;result.items&#65289;</summary>
+      <p class="text-xs json-hint mt-2 mb-2 leading-relaxed">&#36028;&#19978;&#23436;&#25972; JSON&#65292;&#25110;&#20677;&#21547; <code class="px-1 rounded" style="background:#f1f5f9;color:#334155">result.items</code> &#30340;&#29255;&#27573;&#12290;&#35299;&#26512;&#24460;&#33287;&#32178;&#22336;&#25235;&#21462;&#30456;&#21516;&#21015;&#34920;&#65292;&#21487;&#21246;&#36984;&#24460;&#20837;&#24235;&#65288;&#20351;&#29992; imgsSrc &#20840;&#37096;&#22294;&#29255;&#65292;&#20837;&#24235;&#26178;&#19981;&#21478;&#38283;&#27983;&#35261;&#22120;&#28145;&#21270;&#65289;&#12290;</p>
+      <textarea id="jsonPaste" class="w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[140px]" placeholder="{ &quot;result&quot;: { &quot;items&quot;: [...] } }" spellcheck="false"></textarea>
+      <button type="button" id="btnParseJson" class="mt-3 px-4 py-2 rounded-lg text-sm font-medium">&#35299;&#26512;&#20006;&#36617;&#20837;&#21015;&#34920;</button>
+    </details>
+    <div class="flex gap-3 mb-4 flex-wrap items-center">
+      <span class="text-sm text-slate-500">勾選要入庫的項目後點擊按鈕</span>
+      <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>入庫已選（<span id="selCount">0</span> 項）</button>
+      <a id="linkToInventory" href="/inventory" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
+      <button id="btnAll" type="button" class="text-sm">全選</button>
+      <button id="btnNone" type="button" class="text-sm">全不選</button>
+    </div>
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+  </main>
+  <div id="importCatModal" role="dialog" aria-modal="true" aria-labelledby="importCatTitle">
+    <div id="importCatBackdrop" class="absolute inset-0 bg-black/45"></div>
+    <div class="panel surface-card rounded-xl border p-5 shadow-xl">
+      <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">選擇入庫分類</h2>
+      <p class="text-xs text-slate-500 mt-1 mb-4">即將入庫 <span id="importCatCount">0</span> 項</p>
+      <label for="importCatSelect" class="block text-sm text-slate-600 mb-1">分類</label>
+      <select id="importCatSelect" class="field w-full border rounded-lg px-3 py-2 mb-3 text-sm"></select>
+      <p class="text-xs text-slate-400 mb-4 leading-relaxed">預設可選「未分類」。JSON 單筆若已有 category 欄位，仍以該筆為準。</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" id="importCatCancel" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white hover:bg-slate-50">取消</button>
+        <button type="button" id="importCatConfirm" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">確認入庫</button>
+      </div>
+    </div>
+  </div>
+
+
+  <button type="button" id="floatImport" disabled title="入庫">入庫</button>
+  <script>
+    const grid = document.getElementById('grid');
+    const statusEl = document.getElementById('status');
+    const STORAGE_KEY = 'catalog_porter_merchants_page';
+    const LAST_CAT_KEY = 'catalog_porter_last_import_category';
+    let items = [];
+    let importSkipEnrich = false;
+    let pendingImportSel = null;
+
+    let merchantsCache = [];
+    let merchantEditId = null;
+    let merchantStagingUrls = [];
+    async function loadMerchantsForList() {
+      try {
+        const r = await fetch("/api/merchants?_=" + Date.now(), { cache: "no-store" });
+        const j = await r.json();
+        merchantsCache = (j.ok && Array.isArray(j.merchants)) ? j.merchants : [];
+      } catch (_) { merchantsCache = []; }
+    }
+    function resetMerchantForm() {
+      merchantEditId = null;
+      merchantStagingUrls = [];
+      document.getElementById('newMerchantName').value = '';
+            document.getElementById('merchantPasteInput').value = '';
+      document.getElementById('merchantFormHeading').textContent = '新增商家';
+      document.getElementById('btnMerchantNewMode').classList.add('hidden');
+      renderMerchantStaging();
+    }
+    function extractUrlsFromPaste(raw) {
+      const text = String(raw || '');
+      const seen = new Set();
+      const out = [];
+      function add(u) {
+        let s = String(u || '').trim().replace(/[\s，,;；]+$/g, '');
+        if (!/^https?:\/\//i.test(s)) return;
+        if (seen.has(s)) return;
+        seen.add(s);
+        out.push(s);
+      }
+      text.split(/\r?\n/).forEach((line) => add(line.trim()));
+      const re = /https?:\/\/[^\s"']+/gi;
+      let mm;
+      while ((mm = re.exec(text)) !== null) add(mm[0]);
+      if (text.indexOf('{') >= 0) {
+        try {
+          const j = JSON.parse(text);
+          const walk = (v) => {
+            if (typeof v === 'string' && /^https?:\/\//i.test(v.trim())) add(v.trim());
+            else if (Array.isArray(v)) v.forEach(walk);
+            else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+          };
+          walk(j);
+        } catch (_) {}
+      }
+      return out;
+    }
+    function renderMerchantStaging() {
+      const wrap = document.getElementById('merchantStagingList');
+      const cnt = document.getElementById('merchantStagingCount');
+      cnt.textContent = String(merchantStagingUrls.length);
+      wrap.innerHTML = '';
+      merchantStagingUrls.forEach((u, idx) => {
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1 max-w-full px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-xs text-slate-800';
+        const t = document.createElement('span');
+        t.className = 'truncate';
+        t.title = u;
+        t.textContent = u.length > 48 ? u.slice(0, 46) + '…' : u;
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'text-slate-500 hover:text-red-600 shrink-0';
+        x.textContent = '\u00d7';
+        x.onclick = () => {
+          merchantStagingUrls = merchantStagingUrls.filter((_, i) => i !== idx);
+          renderMerchantStaging();
+        };
+        chip.appendChild(t);
+        chip.appendChild(x);
+        wrap.appendChild(chip);
+      });
+    }
+    function addPasteToStaging() {
+      const raw = document.getElementById('merchantPasteInput').value;
+      const found = extractUrlsFromPaste(raw);
+      if (!found.length) {
+        alert('\u6b64\u6bb5\u672a\u8fa8\u8b58\u5230 http(s) \u7db2\u5740\uff0c\u8acb\u78ba\u8a8d\u683c\u5f0f');
+        return;
+      }
+      for (const u of found) {
+        if (merchantStagingUrls.indexOf(u) === -1) merchantStagingUrls.push(u);
+      }
+      document.getElementById('merchantPasteInput').value = '';
+      renderMerchantStaging();
+    }
+    function startEditMerchant(id) {
+      const m = merchantsCache.find((x) => x.id === id);
+      if (!m) return;
+      merchantEditId = id;
+      document.getElementById('newMerchantName').value = m.name || '';
+            merchantStagingUrls = (m.sources || []).map((s) => s.url).filter(Boolean);
+      document.getElementById('merchantPasteInput').value = '';
+      document.getElementById('merchantFormHeading').textContent = '\u7de8\u8f2f\u5546\u5bb6';
+      document.getElementById('btnMerchantNewMode').classList.remove('hidden');
+      renderMerchantStaging();
+    }
+    async function saveMerchantForm() {
+      const name = document.getElementById("newMerchantName").value.trim();
+      if (!name) { alert("請輸入商家名稱"); return; }
+      let catalogItems = [];
+      const jsonRaw = document.getElementById("jsonPaste").value.trim();
+      if (jsonRaw) {
+        try {
+          const parsed = extractJsonObject(jsonRaw);
+          catalogItems = mapWechatAlbumItems(parsed);
+        } catch (e) {
+          alert(e.message || "JSON 解析失敗");
+          return;
+        }
+      }
+      if (!merchantStagingUrls.length && !catalogItems.length) {
+        if (!merchantEditId || jsonRaw) {
+          alert("請至少加入一個相冊網址，或貼上含商品的 JSON（result.items）");
+          return;
+        }
+      }
+      const sources = merchantStagingUrls.map((u) => ({ url: u }));
+      const wasEdit = !!merchantEditId;
+      const body = { name, sources };
+      if (!wasEdit || jsonRaw) {
+        body.catalogItems = catalogItems;
+      }
+      try {
+        let r;
+        if (merchantEditId) {
+          r = await fetch("/api/merchants/" + encodeURIComponent(merchantEditId), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        } else {
+          r = await fetch("/api/merchants", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        }
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.message || j.error || "儲存失敗");
+        if (!j.ok) throw new Error(j.message || j.error || "儲存失敗");
+        resetMerchantForm();
+        document.getElementById("jsonPaste").value = "";
+        await loadMerchantsForList();
+        renderMerchantList();
+        alert(wasEdit ? "已儲存" : "已新增");
+      } catch (e) { alert(e.message || "儲存失敗"); }
+    }
+    function renderMerchantList() {
+      const el = document.getElementById('merchantList');
+      el.innerHTML = '';
+      if (!merchantsCache.length) {
+        el.innerHTML = '<p class="text-slate-500 text-xs">尚無商家，請於下方新增。</p>';
+        return;
+      }
+      merchantsCache.forEach((m) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-2 py-2 border-b border-slate-100';
+        const n = (m.sources && m.sources.length) ? m.sources.length : 0;
+        const snap = typeof m.catalogItemCount === 'number' ? m.catalogItemCount : 0;
+        row.innerHTML = '<span class="truncate font-medium text-slate-800">' + (m.name || '').replace(/</g, '&lt;') + '</span><span class="text-xs text-slate-500">' + n + ' 網址 · ' + snap + ' 筆快照</span>';
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'text-xs text-red-600 shrink-0';
+        del.textContent = '刪除';
+        del.onclick = async () => {
+          if (!confirm('刪除此商家捷徑？')) return;
+          try {
+            const r = await fetch('/api/merchants/' + encodeURIComponent(m.id), { method: 'DELETE' });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || '刪除失敗');
+            await loadMerchantsForList();
+            renderMerchantList();
+          } catch (e) { alert(e.message || '刪除失敗'); }
+        };
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'text-xs text-violet-700 shrink-0 mr-1';
+        edit.textContent = '編輯';
+        edit.onclick = () => { startEditMerchant(m.id); };
+        row.appendChild(edit);
+        row.appendChild(del);
+        el.appendChild(row);
+      });
+    }
+    function stripQuery(u) { return String(u || '').split('?')[0]; }
+    function normalizeImgUrl(u) {
+      u = String(u || '').trim();
+      if (!u) return '';
+      if (u.startsWith('//')) return 'https:' + u;
+      return u;
+    }
+    function collectImageUrls(row) {
+      const norm = (a) => (Array.isArray(a) ? a.map(normalizeImgUrl).filter(Boolean) : []);
+      if (Array.isArray(row.imgsSrc) && row.imgsSrc.length) return norm(row.imgsSrc);
+      if (Array.isArray(row.images) && row.images.length) return row.images.map((x) => normalizeImgUrl(stripQuery(x))).filter(Boolean);
+      if (Array.isArray(row.imgs) && row.imgs.length) return row.imgs.map((x) => normalizeImgUrl(stripQuery(x))).filter(Boolean);
+      if (row.videoThumbImg) return [normalizeImgUrl(stripQuery(row.videoThumbImg))].filter(Boolean);
+      return [];
+    }
+    function stripJsonPasteDecorators(text) {
+      let s = String(text || '').trim();
+      if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);
+      s = s.replace(/^\uFEFF/, '');
+      s = s.replace(/^```(?:json)?\s*\r?\n?/i, '').replace(/\r?\n?```\s*$/i, '');
+      return s.trim();
+    }
+    function extractFirstJsonObject(text) {
+      const start = text.indexOf('{');
+      if (start < 0) throw new Error('找不到 {');
+      let depth = 0;
+      let inStr = false;
+      let esc = false;
+      for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (inStr) {
+          if (esc) { esc = false; continue; }
+          if (c === '\\') { esc = true; continue; }
+          if (c === '"') inStr = false;
+          continue;
+        }
+        if (c === '"') { inStr = true; continue; }
+        if (c === '{') depth++;
+        else if (c === '}') {
+          depth--;
+          if (depth === 0) return text.slice(start, i + 1);
+        }
+      }
+      throw new Error('JSON 大括號不完整（貼上內容可能被截斷）');
+    }
+    function extractJsonObject(text) {
+      const t = stripJsonPasteDecorators(text);
+      if (!t) throw new Error('請貼上內容');
+      try { return JSON.parse(t); } catch (e1) {
+        try {
+          const slice = extractFirstJsonObject(t);
+          return JSON.parse(slice);
+        } catch (e2) {
+          const msg = (e1 && e1.message) ? e1.message : String(e1);
+          throw new Error('JSON 解析失敗：' + msg);
+        }
+      }
+    }
+    function getWechatAlbumItemsArray(parsed) {
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (Array.isArray(parsed.items)) return parsed.items;
+      if (parsed.result && Array.isArray(parsed.result.items)) return parsed.result.items;
+      if (parsed.data && parsed.data.result && Array.isArray(parsed.data.result.items)) return parsed.data.result.items;
+      return null;
+    }
+    function mapWechatAlbumItems(parsed) {
+      const arr = getWechatAlbumItemsArray(parsed);
+      if (!arr) throw new Error('找不到商品陣列：需有 items 或 result.items');
+      const out = [];
+      for (let r = 0; r < arr.length; r++) {
+        const row = arr[r];
+        const imageUrls = collectImageUrls(row);
+        if (!imageUrls.length) continue;
+        const rowCat = row.category != null && String(row.category).trim() !== '' ? String(row.category).trim() : (row.cat != null && String(row.cat).trim() !== '' ? String(row.cat).trim() : undefined);
+        const base = { description: row.title || '', imageUrl: imageUrls[0], imageUrls: imageUrls.slice() };
+        if (rowCat) base.category = rowCat;
+        out.push(base);
+      }
+      return out;
+    }
+    function proxy(u) { return '/proxy?url=' + encodeURIComponent(u); }
+    function updateFloatBtn() {
+      const n = [...document.querySelectorAll('.pick:checked')].length;
+      document.getElementById('floatImport').disabled = n === 0;
+    }
+    function updateSel() {
+      const n = [...document.querySelectorAll('.pick:checked')].length;
+      document.getElementById('selCount').textContent = n;
+      document.getElementById('btnImport').disabled = n === 0;
+      updateFloatBtn();
+    }
+    function saveToStorage() {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+          items,
+          importSkipEnrich,
+          checked: [...document.querySelectorAll(".pick:checked")].map(c => +c.dataset.i),
+          status: statusEl.textContent
+        }));
+      } catch (_) {}
+    }
+    function restoreFromStorage() {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (!data.items || !data.items.length) return;
+        items = data.items;
+        importSkipEnrich = !!data.importSkipEnrich;
+        statusEl.textContent = data.status || "";
+        renderGrid();
+        if (Array.isArray(data.checked) && data.checked.length) {
+          data.checked.forEach(i => {
+            const cb = grid.querySelector('.pick[data-i="' + i + '"]');
+            if (cb) cb.checked = true;
+          });
+          updateSel();
+        }
+      } catch (_) {}
+    }
+
+async function refreshImportCategorySelect() {
+      const sel = document.getElementById('importCatSelect');
+      sel.innerHTML = '';
+      const o0 = document.createElement('option');
+      o0.value = '';
+      o0.textContent = '未分類';
+      sel.appendChild(o0);
+      try {
+        const r = await fetch('/api/categories?_=' + Date.now(), { cache: 'no-store' });
+        const j = await r.json();
+        if (j.ok && Array.isArray(j.categories)) {
+          j.categories.forEach((c) => {
+            if (!c || c === '未分類') return;
+            if ([...sel.options].some((opt) => opt.value === c)) return;
+            const o = document.createElement('option');
+            o.value = c;
+            o.textContent = c;
+            sel.appendChild(o);
+          });
+        }
+      } catch (_) {}
+      const last = localStorage.getItem(LAST_CAT_KEY);
+      if (last !== null && [...sel.options].some((opt) => opt.value === last)) sel.value = last;
+      else sel.value = '';
+    }
+    function openImportModal(sel) {
+      pendingImportSel = sel;
+      document.getElementById('importCatCount').textContent = String(sel.length);
+      refreshImportCategorySelect().then(() => {
+        document.getElementById('importCatModal').classList.add('open');
+      });
+    }
+    function closeImportModal() {
+      document.getElementById('importCatModal').classList.remove('open');
+      pendingImportSel = null;
+    }
+    function resolveImportCategory() {
+      return document.getElementById('importCatSelect').value;
+    }
+
+    function renderGrid() {
+      grid.innerHTML = '';
+      items.forEach((it, i) => {
+        const card = document.createElement('div');
+        card.className = 'border rounded-lg overflow-hidden';
+        card.innerHTML = '<label class="block cursor-pointer"><div class="aspect-square thumb-bg relative"><img class="w-full h-full object-cover" loading="lazy" src="' + proxy(it.imageUrl) + '" /></div><div class="p-2 bg-white"><input type="checkbox" class="pick mr-2 align-middle" data-i="' + i + '" /><span class="text-xs grid-desc line-clamp-4">' + (it.description || '').slice(0,80).replace(/</g,'&lt;') + ((it.description||'').length > 80 ? '...' : '') + '</span></div></label>';
+        grid.appendChild(card);
+      });
+      grid.querySelectorAll('.pick').forEach(cb => cb.onchange = () => { updateSel(); saveToStorage(); });
+      updateSel();
+      updateFloatBtn();
+    }
+    document.getElementById('importCatBackdrop').onclick = closeImportModal;
+    document.getElementById('importCatCancel').onclick = closeImportModal;
+    document.getElementById('importCatConfirm').onclick = async () => {
+      if (!pendingImportSel || !pendingImportSel.length) { closeImportModal(); return; }
+      const defaultCategory = resolveImportCategory();
+      localStorage.setItem(LAST_CAT_KEY, defaultCategory);
+      const sel = pendingImportSel;
+      closeImportModal();
+      await doImport(sel, defaultCategory);
+    };
+    document.addEventListener('keydown', (e) => {
+      const m = document.getElementById('importCatModal');
+      if (m.classList.contains('open') && e.key === 'Escape') { closeImportModal(); e.preventDefault(); }
+    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveToStorage(); });
+    window.addEventListener('beforeunload', saveToStorage);
+    restoreFromStorage();
+    document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
+    document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); saveToStorage(); };
+    document.getElementById('btnParseJson').onclick = () => {
+      const raw = document.getElementById('jsonPaste').value;
+      statusEl.textContent = '解析中…';
+      setTimeout(() => {
+        try {
+          const parsed = extractJsonObject(raw);
+          const mapped = mapWechatAlbumItems(parsed);
+          if (!mapped.length) {
+            alert('沒有可用項目（需有圖片網址）');
+            statusEl.textContent = '';
+            return;
+          }
+          items = mapped;
+          importSkipEnrich = true;
+          statusEl.textContent = 'JSON 已載入 ' + items.length + ' 筆（入庫沿用 API 圖片，不另開深化）';
+          renderGrid();
+          saveToStorage();
+          const jp = document.getElementById('jsonPanel');
+          if (jp && !jp.open) jp.open = true;
+        } catch (e) {
+          statusEl.textContent = '';
+          alert(e.message || '解析失敗');
+        }
+      }, 0);
+    };
+    async function doImport(sel, defaultCategory) {
+      statusEl.textContent = '入庫中...';
+      try {
+        const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel, skipEnrich: importSkipEnrich, defaultCategory: defaultCategory || '' }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || '入庫失敗');
+        if (j.ok === false) throw new Error(j.error || '入庫失敗');
+        const n = (j.saved || []).length;
+        if (n === 0) {
+          alert('入庫 0 筆，請確認已勾選商品');
+          statusEl.textContent = '';
+          saveToStorage();
+        } else {
+          statusEl.textContent = '已入庫 ' + n + ' 筆';
+          alert('已入庫完成');
+          document.getElementById('linkToInventory').classList.remove('hidden');
+          saveToStorage();
+        }
+      } catch (e) { alert(e.message); statusEl.textContent = ''; }
+    }
+    document.getElementById('btnImport').onclick = () => {
+      const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
+      if (!sel.length) return;
+      openImportModal(sel);
+    };
+    document.getElementById('floatImport').onclick = () => {
+      const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
+      if (!sel.length) return;
+      openImportModal(sel);
+    };
+    document.getElementById('btnMerchantPasteAdd').onclick = () => { addPasteToStaging(); };
+    document.getElementById('btnMerchantStagingClear').onclick = () => {
+      merchantStagingUrls = [];
+      renderMerchantStaging();
+    };
+    document.getElementById('btnMerchantNewMode').onclick = () => { resetMerchantForm(); };
+    document.getElementById('merchantFormSave').onclick = () => { void saveMerchantForm(); };
+    loadMerchantsForList().then(() => { renderMerchantList(); });
+  </script>
+</body>
+</html>

@@ -9,8 +9,9 @@
     body { background: #f3f6fb !important; color: #0f172a !important; }
     header { background: #ffffff; border-bottom-color: #e2e8f0 !important; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
     header h1 { display: none !important; }
-    header nav a:first-child { color: #475569 !important; }
-    header nav a:last-child { color: #1e40af !important; }
+    header nav a:nth-child(1) { color: #475569 !important; }
+    header nav a:nth-child(2) { color: #1e40af !important; }
+    header nav a:nth-child(3) { color: #475569 !important; }
     #q { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
     #q::placeholder { color: #64748b; }
     #btnSearch { background: #2563eb !important; color: #fff !important; }
@@ -69,6 +70,7 @@
     <nav class="flex gap-3 text-sm">
       <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
       <a href="/inventory" class="text-amber-300 font-medium">我的庫存</a>
+      <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
   <main class="max-w-7xl mx-auto p-4">

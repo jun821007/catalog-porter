@@ -19,6 +19,8 @@ const {
   updateItem,
   updateItemDescription,
   listMerchants,
+  listMerchantsForApi,
+  getMerchant,
   addMerchant,
   updateMerchant,
   deleteMerchant,
@@ -716,6 +718,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 const htmlOpts = { headers: { 'Content-Type': 'text/html; charset=utf-8' } };
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/index.html'), htmlOpts); });
 app.get('/inventory', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/inventory.html'), htmlOpts); });
+app.get('/merchants', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/merchants.html'), htmlOpts); });
 app.get('/share/:id', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/share.html'), htmlOpts); });
 
 app.post('/fetch', async (req, res) => {
@@ -1091,7 +1094,7 @@ app.post('/api/categories', (req, res) => {
 
 app.get('/api/merchants', (req, res) => {
   try {
-    const merchants = listMerchants();
+    const merchants = listMerchantsForApi();
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, merchants });
   } catch (e) {
@@ -1099,19 +1102,38 @@ app.get('/api/merchants', (req, res) => {
   }
 });
 
+
+app.get('/api/merchants/:id', (req, res) => {
+  try {
+    const m = getMerchant(req.params.id);
+    if (!m) return res.status(404).json({ ok: false, error: 'not found' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, merchant: m });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message) });
+  }
+});
 app.post('/api/merchants', (req, res) => {
   try {
     const body = req.body || {};
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const shopId = body.shopId != null ? String(body.shopId) : '';
     const sources = body.sources;
+    const catalogItems = body.catalogItems;
+    const hasSrc = Array.isArray(sources) && sources.length > 0;
+    const hasCat = Array.isArray(catalogItems) && catalogItems.length > 0;
+    if (!hasSrc && !hasCat) return res.status(400).json({ ok: false, error: 'sources_or_catalog_required', message: '請至少加入一個相冊網址，或貼上含商品的 JSON' });
     if (!name) return res.status(400).json({ ok: false, error: 'name required' });
     if (isDuplicateMerchantName(name, null)) {
       return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家，請選既有商家編輯或換名稱' });
     }
-    const m = addMerchant({ name, shopId, sources });
+    const m = addMerchant({ name, shopId, sources, catalogItems });
     if (!m) return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家' });
-    res.json({ ok: true, merchant: m, merchants: listMerchants() });
+    if (!m.sources.length && !(m.catalogItems && m.catalogItems.length)) {
+      deleteMerchant(m.id);
+      return res.status(400).json({ ok: false, error: 'no_valid_data', message: 'JSON 未解析出任何有效商品，或網址無效' });
+    }
+    res.json({ ok: true, merchant: m, merchants: listMerchantsForApi() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }
@@ -1127,6 +1149,7 @@ app.put('/api/merchants/:id', (req, res) => {
     if (body.name !== undefined) fields.name = body.name;
     if (body.shopId !== undefined) fields.shopId = body.shopId;
     if (body.sources !== undefined) fields.sources = body.sources;
+    if (body.catalogItems !== undefined) fields.catalogItems = body.catalogItems;
     if (body.name !== undefined) {
       const nn = String(body.name || '').trim();
       if (!nn) return res.status(400).json({ ok: false, error: 'name required' });
@@ -1136,7 +1159,7 @@ app.put('/api/merchants/:id', (req, res) => {
     }
     const m = updateMerchant(id, fields);
     if (!m) return res.status(409).json({ ok: false, error: 'duplicate_name', message: '已有同名商家' });
-    res.json({ ok: true, merchant: m, merchants: listMerchants() });
+    res.json({ ok: true, merchant: m, merchants: listMerchantsForApi() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }
@@ -1146,7 +1169,7 @@ app.delete('/api/merchants/:id', (req, res) => {
   try {
     const ok = deleteMerchant(req.params.id);
     if (!ok) return res.status(404).json({ ok: false, error: 'not found' });
-    res.json({ ok: true, merchants: listMerchants() });
+    res.json({ ok: true, merchants: listMerchantsForApi() });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message) });
   }
