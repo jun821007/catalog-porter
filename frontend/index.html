@@ -49,6 +49,7 @@
     #jsonPanel code { background: #f1f5f9 !important; color: #334155 !important; }
     #importCatModal { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
     #importCatModal.open { display: flex !important; }
+    #importCatBackdrop { background: rgba(51, 65, 85, 0.35) !important; }
     #importCatModal .panel { position: relative; z-index: 1; width: 100%; max-width: 22rem; }
   </style>
 </head>
@@ -66,17 +67,14 @@
       <div class="mb-4 pb-4 border-b border-slate-200">
         <span class="block text-sm mb-2 font-medium text-slate-700">商家捷徑（存於伺服器；選商家會載入管理商家頁儲存的商品快照，亦可帶入相冊網址；入庫分類於入庫時選）</span>
         <div class="flex flex-wrap gap-2 items-end">
-          <div class="flex-1 min-w-[160px]">
+          <div class="flex-1 min-w-[200px] max-w-md">
             <label for="merchantSelect" class="block text-xs text-slate-600 mb-1">選商家</label>
             <select id="merchantSelect" class="field w-full border rounded-lg px-3 py-2 text-sm">
               <option value="">未選擇</option>
             </select>
           </div>
-          <div class="flex-1 min-w-[180px]">
-            <label for="merchantSourceSelect" class="block text-xs text-slate-600 mb-1">該商家的網址</label>
-            <select id="merchantSourceSelect" class="field w-full border rounded-lg px-3 py-2 text-sm hidden" title="多個網址時選一筆再抓取"></select>
-          </div>
         </div>
+        <p class="text-xs text-slate-500 mt-2">若該商家在管理頁存了多個相冊網址，抓取時會自動帶入第一個；請改「微商相冊網址」欄位即可換相冊。</p>
       </div>
       <label for="url" class="block text-sm mb-1">微商相冊網址 (wecatalog 等)</label>
       <input id="url" type="url" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
@@ -99,7 +97,7 @@
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
   </main>
   <div id="importCatModal" role="dialog" aria-modal="true" aria-labelledby="importCatTitle">
-    <div id="importCatBackdrop" class="absolute inset-0 bg-black/45"></div>
+    <div id="importCatBackdrop" class="absolute inset-0"></div>
     <div class="panel surface-card rounded-xl border p-5 shadow-xl">
       <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">選擇入庫分類</h2>
       <p class="text-xs text-slate-500 mt-1 mb-4">即將入庫 <span id="importCatCount">0</span> 項</p>
@@ -146,49 +144,22 @@
       } catch (_) { merchantsCache = []; }
       if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
       else sel.value = '';
-      syncMerchantSourceSelect();
+      applyMerchantPrimaryUrl();
       const v = document.getElementById('merchantSelect').value;
       if (v) void loadMerchantCatalog(v);
     }
-    function syncMerchantSourceSelect() {
+    function applyMerchantPrimaryUrl() {
       const mid = document.getElementById('merchantSelect').value;
-      const ss = document.getElementById('merchantSourceSelect');
-      const urlEl = document.getElementById('url');
-      ss.innerHTML = '';
-      if (!mid) {
-        ss.classList.add('hidden');
-        return;
-      }
-      const m = merchantsCache.find((x) => x.id === mid);
-      const sources = (m && Array.isArray(m.sources)) ? m.sources : [];
-      if (!sources.length) {
-        ss.classList.add('hidden');
-        urlEl.value = '';
-        return;
-      }
-      sources.forEach((s, i) => {
-        const o = document.createElement('option');
-        o.value = String(i);
-        const u = s.url || '';
-        o.textContent = (s.label && String(s.label).trim()) ? String(s.label).trim() : (u.length > 56 ? u.slice(0, 54) + '…' : u);
-        o.title = u;
-        ss.appendChild(o);
-      });
-      if (sources.length > 1) ss.classList.remove('hidden');
-      else ss.classList.add('hidden');
-      const u0 = sources[0].url || '';
-      if (u0) urlEl.value = u0;
-      ss.value = '0';
-    }
-    function applyMerchantUrlFromPick() {
-      const mid = document.getElementById('merchantSelect').value;
-      const ss = document.getElementById('merchantSourceSelect');
       const urlEl = document.getElementById('url');
       if (!mid) return;
       const m = merchantsCache.find((x) => x.id === mid);
       const sources = (m && Array.isArray(m.sources)) ? m.sources : [];
-      const idx = parseInt(ss.value, 10);
-      if (!isNaN(idx) && sources[idx] && sources[idx].url) urlEl.value = sources[idx].url;
+      if (!sources.length) {
+        urlEl.value = '';
+        return;
+      }
+      const u0 = sources[0].url || '';
+      if (u0) urlEl.value = u0;
     }
     async function loadMerchantCatalog(mid) {
       if (!mid) return;
@@ -388,11 +359,10 @@
       openImportModal(sel);
     };
     document.getElementById('merchantSelect').onchange = () => {
-      syncMerchantSourceSelect();
+      applyMerchantPrimaryUrl();
       const v = document.getElementById('merchantSelect').value;
       if (v) void loadMerchantCatalog(v);
     };
-    document.getElementById('merchantSourceSelect').onchange = () => { applyMerchantUrlFromPick(); };
     refreshMerchantSelect();
   </script>
 </body>

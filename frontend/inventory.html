@@ -39,7 +39,14 @@
     .pickLarge { width: 1.45rem; height: 1.45rem; accent-color: #2563eb; }
     #descEditModal { display: none; position: fixed; inset: 0; z-index: 60; align-items: center; justify-content: center; padding: 1rem; }
     #descEditModal.show { display: flex; }
-    #descEditBackdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+    #descEditBackdrop { background: rgba(51, 65, 85, 0.38) !important; }
+    #descEditCancel {
+      background: #ffffff !important;
+      color: #334155 !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+    #descEditCancel:hover { background: #f8fafc !important; color: #0f172a !important; }
+    #descEditBackdrop { position: absolute; inset: 0; }
     #descEditPanel { position: relative; z-index: 1; width: 100%; max-width: 32rem; max-height: 90vh; display: flex; flex-direction: column; }
     #catFilter { color: #0f172a !important; background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
     #lightbox { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.88); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.5rem; align-items: flex-start; justify-content: center; }
@@ -95,7 +102,7 @@
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
     <details class="mt-6 text-xs text-slate-500" id="debugPanel">
       <summary>診斷資訊</summary>
-      <pre id="debugOut" class="mt-2 p-3 bg-slate-900 rounded overflow-auto max-h-32"></pre>
+      <pre id="debugOut" class="mt-2 p-3 bg-slate-100 rounded border border-slate-200 text-slate-800 overflow-auto max-h-32"></pre>
     </details>
   </main>
   <div id="lightbox" role="dialog" aria-modal="true">
@@ -112,14 +119,14 @@
   </div>
   <div id="descEditModal" aria-modal="true" role="dialog" aria-labelledby="descEditTitle">
     <div id="descEditBackdrop"></div>
-    <div id="descEditPanel" class="bg-slate-900 border border-slate-600 rounded-lg shadow-xl p-4">
-      <div id="descEditTitle" class="text-sm text-slate-300 mb-2">編輯描述與分類</div>
+    <div id="descEditPanel" class="bg-white border border-slate-200 rounded-lg shadow-xl p-4">
+      <div id="descEditTitle" class="text-sm font-medium text-slate-800 mb-2">編輯描述與分類</div>
       <label for="descEditCat" class="block text-xs text-slate-500 mb-1">分類</label>
-      <select id="descEditCat" class="w-full mb-2 bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-slate-200 text-sm"></select>
+      <select id="descEditCat" class="w-full mb-2 bg-white border border-slate-300 rounded px-2 py-1.5 text-slate-800 text-sm"></select>
       <p class="text-xs text-slate-500 mb-2 leading-relaxed">儲存時，描述會經伺服器與入庫相同規則處理：簡轉繁、移除文案中獨立的 p400、P411 等批發價標記。</p>
-      <textarea id="descEditTa" class="w-full min-h-[220px] bg-slate-800 border border-slate-600 rounded p-2 text-slate-200 text-sm" autocomplete="off"></textarea>
+      <textarea id="descEditTa" class="w-full min-h-[220px] bg-white border border-slate-300 rounded p-2 text-slate-800 text-sm" autocomplete="off"></textarea>
       <div class="flex gap-2 mt-3 justify-end flex-shrink-0">
-        <button type="button" id="descEditCancel" class="px-3 py-1.5 rounded bg-slate-700 text-slate-200 text-sm">&#21462;&#28040;</button>
+        <button type="button" id="descEditCancel" class="px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">&#21462;&#28040;</button>
         <button type="button" id="descEditSave" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm">&#20786;&#23384;</button>
       </div>
     </div>
@@ -348,11 +355,11 @@
       document.getElementById("countBadge").textContent = items.length > 0 ? "（" + items.length + " 項）" : "";
       items.forEach(it => {
         const card = document.createElement("div");
-        card.className = "bg-slate-900 border border-slate-800 rounded-lg overflow-hidden";
+        card.className = "inv-card rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white";
         const rawPath = it.image_path || (it.image_paths && it.image_paths[0]) || "";
         const imgSrc = rawPath.startsWith("http") ? rawPath : (getApiBase() + (rawPath.startsWith("/") ? rawPath : "/" + rawPath));
         const catStr = (it.category && String(it.category).trim()) ? String(it.category).trim() : "未分類";
-        card.innerHTML = '<div class="aspect-square bg-slate-800 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" /></div><div class="p-2"><div class="descPreview text-xs bg-slate-800 border border-slate-700 rounded p-2 text-slate-300 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-500" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center gap-2 flex-wrap"><span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/90 text-white max-w-[45%] truncate" title="' + esc(catStr) + '">' + esc(catStr) + '</span><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
+        card.innerHTML = '<div class="aspect-square bg-slate-100 cursor-pointer img-preview relative" data-id="' + it.id + '"><img class="w-full h-full object-cover" src="' + imgSrc + '" alt="" /></div><div class="p-2 bg-white"><div class="descPreview text-xs bg-slate-50 border border-slate-200 rounded p-2 text-slate-700 min-h-[3rem] max-h-24 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:border-slate-400" tabindex="0" data-id="' + it.id + '" title="&#40670;&#25802;&#20462;&#25913;"></div><div class="mt-2 flex w-full items-center gap-2 flex-wrap"><span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/90 text-white max-w-[45%] truncate" title="' + esc(catStr) + '">' + esc(catStr) + '</span><button type="button" class="btnOpenEdit text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500" data-id="' + it.id + '">&#20462;&#25913;</button><input type="checkbox" class="pick pickLarge ml-auto" data-id="' + it.id + '" aria-label="Select item" /></div></div>';
         card.setAttribute("data-item-id", String(it.id));
         card.setAttribute("data-category", (it.category && String(it.category).trim()) ? String(it.category).trim() : "");
         grid.appendChild(card);

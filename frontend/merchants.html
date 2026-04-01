@@ -49,6 +49,7 @@
     #jsonPanel code { background: #f1f5f9 !important; color: #334155 !important; }
     #importCatModal { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
     #importCatModal.open { display: flex !important; }
+    #importCatBackdrop { background: rgba(51, 65, 85, 0.35) !important; }
     #importCatModal .panel { position: relative; z-index: 1; width: 100%; max-width: 22rem; }
   </style>
 </head>
@@ -102,7 +103,7 @@
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
   </main>
   <div id="importCatModal" role="dialog" aria-modal="true" aria-labelledby="importCatTitle">
-    <div id="importCatBackdrop" class="absolute inset-0 bg-black/45"></div>
+    <div id="importCatBackdrop" class="absolute inset-0"></div>
     <div class="panel surface-card rounded-xl border p-5 shadow-xl">
       <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">選擇入庫分類</h2>
       <p class="text-xs text-slate-500 mt-1 mb-4">即將入庫 <span id="importCatCount">0</span> 項</p>
@@ -376,19 +377,53 @@
       if (parsed.data && parsed.data.result && Array.isArray(parsed.data.result.items)) return parsed.data.result.items;
       return null;
     }
+    function normImgDedupeKey(u) {
+      return String(u || '').trim().split('?')[0];
+    }
+    function mergeKeyForWechatRow(row) {
+      const g = row.selfGoodsId ?? row.goods_id ?? row.parent_goods_id ?? row.commodityId ?? row.commodity_id ?? row.goodsId ?? row.microGoodsId ?? row.item_id;
+      if (g != null && String(g).trim() !== '') return 'g:' + String(g).trim();
+      const aid = row.albumId ?? row.shopWindowAlbumId ?? row.parentAlbumId ?? row.album_id ?? row.shopWindowId ?? row.windowId ?? row.albumID;
+      const t = String(row.title || '').trim().slice(0, 80);
+      if (aid != null && String(aid).trim() !== '') return 'a:' + String(aid).trim() + '|' + t;
+      return null;
+    }
     function mapWechatAlbumItems(parsed) {
       const arr = getWechatAlbumItemsArray(parsed);
       if (!arr) throw new Error('找不到商品陣列：需有 items 或 result.items');
-      const out = [];
+      const groups = new Map();
       for (let r = 0; r < arr.length; r++) {
         const row = arr[r];
         const imageUrls = collectImageUrls(row);
         if (!imageUrls.length) continue;
         const rowCat = row.category != null && String(row.category).trim() !== '' ? String(row.category).trim() : (row.cat != null && String(row.cat).trim() !== '' ? String(row.cat).trim() : undefined);
-        const base = { description: row.title || '', imageUrl: imageUrls[0], imageUrls: imageUrls.slice() };
-        if (rowCat) base.category = rowCat;
-        out.push(base);
+        const desc = String(row.title || '').trim();
+        let key = mergeKeyForWechatRow(row);
+        if (!key) {
+          const t = String(row.title || '').trim();
+          if (t) key = 't:' + t.slice(0, 120);
+          else key = 'u:' + normImgDedupeKey(imageUrls[0]);
+        }
+        if (!groups.has(key)) {
+          groups.set(key, { description: desc, imageUrls: [], seen: new Set(), category: rowCat });
+        }
+        const agg = groups.get(key);
+        for (const u of imageUrls) {
+          const dk = normImgDedupeKey(u);
+          if (agg.seen.has(dk)) continue;
+          agg.seen.add(dk);
+          agg.imageUrls.push(u);
+        }
+        if (desc.length > (agg.description || '').length) agg.description = desc;
+        if (rowCat && !agg.category) agg.category = rowCat;
       }
+      const out = [];
+      groups.forEach((agg) => {
+        if (!agg.imageUrls.length) return;
+        const base = { description: agg.description || '', imageUrl: agg.imageUrls[0], imageUrls: agg.imageUrls.slice() };
+        if (agg.category) base.category = agg.category;
+        out.push(base);
+      });
       return out;
     }
     function proxy(u) { return '/proxy?url=' + encodeURIComponent(u); }
