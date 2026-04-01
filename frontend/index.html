@@ -74,7 +74,7 @@
             </select>
           </div>
         </div>
-        <p class="text-xs text-slate-500 mt-2">若該商家在管理頁存了多個相冊網址，抓取時會自動帶入第一個；請改「微商相冊網址」欄位即可換相冊。</p>
+        <p class="text-xs text-slate-500 mt-2">選商家後只會載入「商品快照」，不會自動填網址（管理頁存的相冊連結可能是圖片直連，無法抓取）。若要線上抓取，請自行貼<strong>相冊頁</strong>網址到下方欄位。</p>
       </div>
       <label for="url" class="block text-sm mb-1">微商相冊網址 (wecatalog 等)</label>
       <input id="url" type="url" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="https://..." />
@@ -144,25 +144,13 @@
       } catch (_) { merchantsCache = []; }
       if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
       else sel.value = '';
-      applyMerchantPrimaryUrl();
       const v = document.getElementById('merchantSelect').value;
       if (v) void loadMerchantCatalog(v);
     }
-    function applyMerchantPrimaryUrl() {
-      const mid = document.getElementById('merchantSelect').value;
-      const urlEl = document.getElementById('url');
-      if (!mid) return;
-      const m = merchantsCache.find((x) => x.id === mid);
-      const sources = (m && Array.isArray(m.sources)) ? m.sources : [];
-      if (!sources.length) {
-        urlEl.value = '';
-        return;
-      }
-      const u0 = sources[0].url || '';
-      if (u0) urlEl.value = u0;
-    }
     async function loadMerchantCatalog(mid) {
       if (!mid) return;
+      const urlEl = document.getElementById('url');
+      urlEl.value = '';
       try {
         const r = await fetch('/api/merchants/' + encodeURIComponent(mid) + '?_=' + Date.now(), { cache: 'no-store' });
         const j = await r.json();
@@ -178,7 +166,7 @@
         } else {
           items = [];
           renderGrid();
-          statusEl.textContent = '「' + label + '」尚無商品快照；請至管理商家貼 JSON 並儲存，或使用下方網址抓取';
+          statusEl.textContent = '「' + label + '」尚無商品快照；請至管理商家貼 JSON 並儲存。若要線上抓取，請在下方自行貼相冊頁網址。';
           saveToStorage();
         }
       } catch (e) {
@@ -196,13 +184,27 @@
       document.getElementById('btnImport').disabled = n === 0;
       updateFloatBtn();
     }
+    function isUnusableScrapeUrl(u) {
+      const s = String(u || '').trim().toLowerCase();
+      if (!s) return false;
+      if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|#|$)/i.test(s)) return true;
+      if (/xcimg\.szwego\.com\/img\//i.test(s)) return true;
+      if (/\/img\/[a-f0-9]{6,}\//i.test(s) && /\.(jpg|jpeg|png)/i.test(s)) return true;
+      return false;
+    }
     function saveToStorage() {
       try {
+        const urlEl = document.getElementById('url');
+        let urlVal = urlEl.value;
+        if (isUnusableScrapeUrl(urlVal)) {
+          urlVal = '';
+          urlEl.value = '';
+        }
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
           items,
           importSkipEnrich,
           checked: [...document.querySelectorAll('.pick:checked')].map(c => +c.dataset.i),
-          url: document.getElementById('url').value,
+          url: urlVal,
           keyword: document.getElementById('keyword').value,
           status: statusEl.textContent
         }));
@@ -216,7 +218,9 @@
         if (!data.items || !data.items.length) return;
         items = data.items;
         importSkipEnrich = !!data.importSkipEnrich;
-        if (data.url) document.getElementById('url').value = data.url;
+        const urlEl = document.getElementById('url');
+        if (importSkipEnrich || !data.url || isUnusableScrapeUrl(data.url)) urlEl.value = '';
+        else urlEl.value = data.url;
         if (data.keyword) document.getElementById('keyword').value = data.keyword || '';
         statusEl.textContent = data.status || '';
         renderGrid();
@@ -359,9 +363,14 @@
       openImportModal(sel);
     };
     document.getElementById('merchantSelect').onchange = () => {
-      applyMerchantPrimaryUrl();
       const v = document.getElementById('merchantSelect').value;
-      if (v) void loadMerchantCatalog(v);
+      const urlEl = document.getElementById('url');
+      if (!v) {
+        urlEl.value = '';
+        saveToStorage();
+        return;
+      }
+      void loadMerchantCatalog(v);
     };
     refreshMerchantSelect();
   </script>
