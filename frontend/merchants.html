@@ -89,6 +89,13 @@
         <button type="button" id="btnJsonStagingAdd" class="px-3 py-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-900 text-xs font-medium">加入 JSON 此段</button>
         <button type="button" id="btnJsonStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空 JSON 待加入</button>
       </div>
+      <div class="flex flex-wrap gap-2 mt-2 mb-2 items-center">
+        <input id="harFileInput" type="file" accept=".har,application/json" class="hidden" />
+        <button type="button" id="btnHarPick" class="px-3 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-medium">上傳 Proxyman HAR 檔</button>
+        <button type="button" id="btnHarClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空 HAR 待加入</button>
+        <span class="text-xs text-slate-600">已加入 <span id="harStagingCount">0</span> 筆 HAR 快照項目</span>
+      </div>
+      <div id="harDropzone" class="border border-dashed border-emerald-300 rounded-lg px-3 py-3 text-xs text-slate-600 bg-emerald-50/40 mb-2">拖曳 Proxyman HAR 檔到這裡，會自動解析 album/personal/all 分頁並合併。</div>
       <div class="mb-4">
         <span class="text-xs text-slate-600">已加入 <span id="jsonStagingCount">0</span> 段 JSON（儲存時合併）</span>
         <div id="jsonStagingList" class="mt-2 flex flex-wrap gap-1.5 min-h-[1.5rem]"></div>
@@ -143,6 +150,7 @@
     let merchantEditId = null;
     let merchantStagingUrls = [];
     let jsonStagingSegments = [];
+    let harStagingCatalogItems = [];
     let merchantEditCatalogSnapshot = [];
     async function loadMerchantsForList() {
       try {
@@ -163,6 +171,7 @@
       document.getElementById('btnMerchantNewMode').classList.add('hidden');
       renderMerchantStaging();
       renderJsonStaging();
+      renderHarStaging();
     }
     function extractUrlsFromPaste(raw) {
       const text = String(raw || '');
@@ -244,6 +253,88 @@
         wrap.appendChild(chip);
       });
     }
+    function renderHarStaging() {
+      const cnt = document.getElementById('harStagingCount');
+      if (!cnt) return;
+      cnt.textContent = String(harStagingCatalogItems.length);
+    }
+    function cleanPriceTagsFromDescription(text) {
+      const src = String(text || '');
+      const tokenRe = /(?:[\u{1F4B0}\u00A5\uFFE5]\s*\d[\dXx]*|\d[\dXx]*\s*[\u{1F4B0}\u00A5\uFFE5]|[Pp]\s*\d[\dXx]*|\d[\dXx]*\s*[Pp])/gu;
+      return src.replace(tokenRe, ' ').replace(/\s{2,}/g, ' ').trim();
+    }
+    function decodeHarContentText(text, encoding) {
+      const raw = String(text || '');
+      if (!raw) return '';
+      if (String(encoding || '').toLowerCase() !== 'base64') return raw;
+      try {
+        const bin = atob(raw);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder('utf-8').decode(bytes);
+      } catch (_) {
+        return '';
+      }
+    }
+    function parseSingleHarResponseToItems(contentText) {
+      if (!String(contentText || '').trim()) return [];
+      try {
+        const parsed = extractJsonObject(contentText);
+        const arr = getWechatAlbumItemsArray(parsed);
+        return Array.isArray(arr) ? arr : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    function mapHarRowsToCatalogItems(rows) {
+      const mappedRows = [];
+      const input = Array.isArray(rows) ? rows : [];
+      for (let i = 0; i < input.length; i++) {
+        const row = input[i] || {};
+        if (!collectImageUrls(row).length) continue;
+        const titleClean = cleanPriceTagsFromDescription(row.title || '');
+        mappedRows.push({ ...row, title: titleClean });
+      }
+      if (!mappedRows.length) return [];
+      return mapWechatAlbumItems({ result: { items: mappedRows } });
+    }
+    function parseHarCatalogItems(harText) {
+      const har = JSON.parse(String(harText || ''));
+      const entries = (har && har.log && Array.isArray(har.log.entries)) ? har.log.entries : [];
+      const rows = [];
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i] || {};
+        const reqUrl = String(e.request && e.request.url || '');
+        if (!/album|personal|all/i.test(reqUrl)) continue;
+        const content = e.response && e.response.content ? e.response.content : {};
+        const text = decodeHarContentText(content.text, content.encoding);
+        const arr = parseSingleHarResponseToItems(text);
+        if (arr.length) rows.push(...arr);
+      }
+      return mapHarRowsToCatalogItems(rows);
+    }
+    async function addHarFileToStaging(file) {
+      const name = file && file.name ? file.name : 'HAR';
+      let text = '';
+      try {
+        text = await file.text();
+      } catch (_) {
+        throw new Error(name + ' read failed');
+      }
+      let catalogItems = [];
+      try {
+        catalogItems = parseHarCatalogItems(text);
+      } catch (_) {
+        throw new Error(name + ' is not a valid HAR JSON');
+      }
+      if (!catalogItems.length) {
+        throw new Error(name + ' has no usable items (need album/personal/all + result.items)');
+      }
+      harStagingCatalogItems = mergeNormalizedCatalogItems(harStagingCatalogItems, catalogItems);
+      renderHarStaging();
+      statusEl.textContent = name + ' added ' + catalogItems.length + ' items (HAR total ' + harStagingCatalogItems.length + ')';
+    }
+
     function addPasteToStaging() {
       const raw = document.getElementById('merchantPasteInput').value;
       const found = extractUrlsFromPaste(raw);
@@ -266,7 +357,9 @@
       document.getElementById('merchantPasteInput').value = '';
       document.getElementById('jsonPaste').value = '';
       jsonStagingSegments = [];
+      harStagingCatalogItems = [];
       renderJsonStaging();
+      renderHarStaging();
       merchantEditCatalogSnapshot = [];
       document.getElementById('merchantFormHeading').textContent = '\u7de8\u8f2f\u5546\u5bb6';
       document.getElementById('btnMerchantNewMode').classList.remove('hidden');
@@ -283,7 +376,7 @@
       const name = document.getElementById('newMerchantName').value.trim();
       if (!name) { alert('請輸入商家名稱'); return; }
       const jsonPasteVal = document.getElementById('jsonPaste').value.trim();
-      const jsonIntent = jsonStagingSegments.length > 0 || jsonPasteVal.length > 0;
+      const jsonIntent = jsonStagingSegments.length > 0 || jsonPasteVal.length > 0 || harStagingCatalogItems.length > 0;
       const pruned = pruneJsonStagingToUsable(jsonStagingSegments);
       if (pruned.dropped > 0) {
         jsonStagingSegments = pruned.segments;
@@ -298,20 +391,21 @@
         alert(e.message || 'JSON 解析失敗');
         return;
       }
-      const hasContributableJson = newFromJson.length > 0;
+      const incomingCatalogItems = mergeNormalizedCatalogItems(newFromJson, harStagingCatalogItems);
+      const hasContributableCatalogItems = incomingCatalogItems.length > 0;
       let catalogItems = null;
       if (merchantEditId) {
-        if (hasContributableJson) {
-          catalogItems = mergeNormalizedCatalogItems(merchantEditCatalogSnapshot || [], newFromJson);
+        if (hasContributableCatalogItems) {
+          catalogItems = mergeNormalizedCatalogItems(merchantEditCatalogSnapshot || [], incomingCatalogItems);
         }
       } else {
-        catalogItems = newFromJson;
+        catalogItems = incomingCatalogItems;
       }
       if (!merchantStagingUrls.length && (!catalogItems || !catalogItems.length)) {
         if (!merchantEditId || jsonIntent) {
           alert(jsonIntent
-            ? '目前沒有任何有效商品 JSON（已略過無效段落）。請至少一段含 result.items 與圖片網址，或加入相冊網址。'
-            : '請至少加入一個相冊網址，或貼上含商品的 JSON（result.items）');
+            ? 'No usable product data from JSON/HAR. Please provide valid JSON/HAR, or add album URLs.'
+            : 'Please add at least one album URL, or paste JSON/HAR with products');
           return;
         }
       }
@@ -497,25 +591,26 @@ async function refreshImportCategorySelect() {
     document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
     document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); saveToStorage(); };
     document.getElementById('btnParseJson').onclick = () => {
-      statusEl.textContent = '解析中…';
+      statusEl.textContent = 'Parsing...';
       setTimeout(() => {
         try {
-          const mapped = mapFromJsonSegments(jsonStagingSegments, document.getElementById('jsonPaste').value);
+          const mappedJson = mapFromJsonSegments(jsonStagingSegments, document.getElementById('jsonPaste').value);
+          const mapped = mergeNormalizedCatalogItems(mappedJson, harStagingCatalogItems);
           if (!mapped.length) {
-            alert('沒有可用項目：請先「加入 JSON 此段」或貼上含 result.items 的內容');
+            alert('No usable items: add valid JSON segments or upload a parseable HAR');
             statusEl.textContent = '';
             return;
           }
           items = mapped;
           importSkipEnrich = true;
-          statusEl.textContent = 'JSON 已載入 ' + items.length + ' 筆（入庫沿用 API 圖片，不另開深化）';
+          statusEl.textContent = 'JSON/HAR loaded ' + items.length + ' items (import uses API images without re-enrich)';
           renderGrid();
           saveToStorage();
           const jp = document.getElementById('jsonPanel');
           if (jp && !jp.open) jp.open = true;
         } catch (e) {
           statusEl.textContent = '';
-          alert(e.message || '解析失敗');
+          alert(e.message || 'Parse failed');
         }
       }, 0);
     };
@@ -570,7 +665,44 @@ async function refreshImportCategorySelect() {
       jsonStagingSegments = [];
       renderJsonStaging();
     };
+    document.getElementById('btnHarPick').onclick = () => {
+      const fi = document.getElementById('harFileInput');
+      fi.value = '';
+      fi.click();
+    };
+    document.getElementById('harFileInput').onchange = async (ev) => {
+      const files = ev && ev.target && ev.target.files ? Array.from(ev.target.files) : [];
+      for (const f of files) {
+        try { await addHarFileToStaging(f); } catch (e) { alert(e.message || 'HAR parse failed'); }
+      }
+    };
+    document.getElementById('btnHarClear').onclick = () => {
+      harStagingCatalogItems = [];
+      renderHarStaging();
+      statusEl.textContent = 'HAR staging cleared';
+    };
+    const harDropzone = document.getElementById('harDropzone');
+    harDropzone.addEventListener('dragover', (ev) => {
+      ev.preventDefault();
+      harDropzone.classList.add('bg-emerald-100');
+    });
+    harDropzone.addEventListener('dragleave', () => {
+      harDropzone.classList.remove('bg-emerald-100');
+    });
+    harDropzone.addEventListener('drop', async (ev) => {
+      ev.preventDefault();
+      harDropzone.classList.remove('bg-emerald-100');
+      const files = Array.from((ev.dataTransfer && ev.dataTransfer.files) || []).filter((f) => /\.har$|\.json$/i.test(f.name || ''));
+      if (!files.length) {
+        alert('Please drop .har files');
+        return;
+      }
+      for (const f of files) {
+        try { await addHarFileToStaging(f); } catch (e) { alert(e.message || 'HAR parse failed'); }
+      }
+    });
     document.getElementById('merchantFormSave').onclick = () => { void saveMerchantForm(); };
+    renderHarStaging();
     loadMerchantsForList().then(() => { renderMerchantList(); });
   </script>
 </body>
