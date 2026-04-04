@@ -2,6 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>&#25105;&#30340;&#24235;&#23384;</title>
   <link rel="stylesheet" href="/styles.css" />
@@ -18,7 +20,7 @@
     #btnAddCategory { background: #fde047 !important; color: #1c1917 !important; border: 2px solid #ca8a04 !important; font-weight: 700; box-shadow: 0 1px 3px rgba(202,138,4,.35); }
     #btnAddCategory:hover { background: #facc15 !important; color: #0f172a !important; border-color: #a16207 !important; }
     #btnAddCategory:focus-visible { outline: 3px solid #eab308; outline-offset: 2px; }
-    #btnShare, #btnBatchDel { color: #fff !important; }
+    #btnShare, #btnBatchDel, #btnBatchCat { color: #fff !important; }
     #btnSelectAll, #btnSelectNone { background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1; padding: 0.35rem 0.6rem; border-radius: .5rem; text-decoration: none !important; }
     #btnSelectAll:hover, #btnSelectNone:hover { background: #f8fafc !important; color: #0f172a !important; }
     .bg-slate-900 { background: #ffffff !important; }
@@ -69,14 +71,20 @@
       border: 1px solid #cbd5e1 !important;
     }
     #descEditCat option { color: #0f172a; background: #f8fafc; }
+    #batchCatModal { display: none; position: fixed; inset: 0; z-index: 65; align-items: center; justify-content: center; padding: 1rem; }
+    #batchCatModal.show { display: flex; }
+    #batchCatBackdrop { position: absolute; inset: 0; background: rgba(51, 65, 85, 0.38) !important; }
+    #batchCatPanel { position: relative; z-index: 1; width: 100%; max-width: 22rem; background: #ffffff !important; border: 1px solid #cbd5e1 !important; border-radius: 0.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); padding: 1rem; }
+    #batchCatPanel label, #batchCatPanel .text-slate-500 { color: #64748b !important; }
+    #batchCatSelect { color: #0f172a !important; background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important; }
   </style>
 </head>
-<body class="text-slate-100 min-h-screen">
+<body class="text-slate-100 min-h-screen" data-inv-ui="inv-batch-v1">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">我的庫存<span id="countBadge" class="text-slate-400 font-normal ml-2 text-base"></span></h1>
     <nav class="flex gap-3 text-sm">
       <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
-      <a href="/inventory" class="text-amber-300 font-medium">我的庫存</a>
+      <a href="/inventory?v=batch2" class="text-amber-300 font-medium">我的庫存</a>
       <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
@@ -93,12 +101,16 @@
     </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
       <button type="button" id="btnAddCategory" class="px-4 py-2 rounded-lg text-sm">新增分類</button>
-      <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>生成分享連結</button>
-      <button id="btnBatchDel" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40" disabled>批量刪除</button>
+      <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:grayscale" disabled>生成分享連結</button>
+      <button id="btnBatchDel" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:grayscale" disabled>批量刪除</button>
+      <button id="btnBatchCat" class="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg font-medium ring-2 ring-teal-700/25 disabled:opacity-60" disabled title="需先勾選至少一筆庫存">批量設分類</button>
       <button id="btnSelectAll" class="text-slate-400 hover:text-white text-sm underline">全選</button>
       <button id="btnSelectNone" class="text-slate-400 hover:text-white text-sm underline">取消全選</button>
       <button type="button" id="shareLinkBtn" class="hidden text-left px-3 py-2 rounded-lg bg-violet-100 text-violet-900 text-sm font-medium border border-violet-200 hover:bg-violet-200 max-w-full"></button>
     </div>
+    <p class="text-xs text-slate-600 mb-3 leading-relaxed border-l-4 border-teal-500 pl-2 py-0.5 bg-teal-50/80 rounded-r">
+      <strong>批量功能：</strong>先勾選卡片右側方塊 → 按綠色「<strong>批量設分類</strong>」一次改分類。編輯描述時可勾選「將相同描述套用到目前已勾選的其他項目」同步內文（不改其他項的分類）。
+    </p>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
     <details class="mt-6 text-xs text-slate-500" id="debugPanel">
       <summary>診斷資訊</summary>
@@ -124,10 +136,27 @@
       <label for="descEditCat" class="block text-xs text-slate-500 mb-1">分類</label>
       <select id="descEditCat" class="w-full mb-2 bg-white border border-slate-300 rounded px-2 py-1.5 text-slate-800 text-sm"></select>
       <p class="text-xs text-slate-500 mb-2 leading-relaxed">儲存時，描述會經伺服器與入庫相同規則處理：簡轉繁、移除文案中獨立的 p400、P411 等批發價標記。</p>
+      <label class="flex items-start gap-2 mb-2 text-xs text-slate-700 cursor-pointer">
+        <input type="checkbox" id="descEditSyncToChecked" class="mt-0.5 shrink-0" />
+        <span>儲存後，將<strong>相同描述文字</strong>套用到下方列表<strong>目前已勾選</strong>的其他項目（僅改描述，不改那些項目的分類）。請確認勾選的都是同一商品或你要統一的文字。</span>
+      </label>
       <textarea id="descEditTa" class="w-full min-h-[220px] bg-white border border-slate-300 rounded p-2 text-slate-800 text-sm" autocomplete="off"></textarea>
       <div class="flex gap-2 mt-3 justify-end flex-shrink-0">
         <button type="button" id="descEditCancel" class="px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">&#21462;&#28040;</button>
         <button type="button" id="descEditSave" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm">&#20786;&#23384;</button>
+      </div>
+    </div>
+  </div>
+  <div id="batchCatModal" aria-modal="true" role="dialog" aria-labelledby="batchCatTitle">
+    <div id="batchCatBackdrop"></div>
+    <div id="batchCatPanel">
+      <div id="batchCatTitle" class="text-sm font-medium text-slate-800 mb-2">批量設分類</div>
+      <p id="batchCatHint" class="text-xs text-slate-500 mb-2 leading-relaxed"></p>
+      <label for="batchCatSelect" class="block text-xs text-slate-500 mb-1">分類</label>
+      <select id="batchCatSelect" class="w-full mb-3 rounded px-2 py-1.5 text-sm"></select>
+      <div class="flex gap-2 justify-end">
+        <button type="button" id="batchCatCancel" class="px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">取消</button>
+        <button type="button" id="batchCatConfirm" class="px-3 py-1.5 rounded bg-teal-600 text-white text-sm hover:bg-teal-500">套用至勾選項目</button>
       </div>
     </div>
   </div>
@@ -247,6 +276,37 @@
       }
       if (sel.value === "" && wanted === "") sel.selectedIndex = 0;
     }
+    async function fillBatchCatSelect(presetRaw) {
+      const sel = document.getElementById("batchCatSelect");
+      sel.innerHTML = "";
+      const addOpt = (value, label) => {
+        const o = document.createElement("option");
+        o.value = value;
+        o.textContent = label;
+        sel.appendChild(o);
+      };
+      addOpt("", "未分類");
+      const wanted = presetRaw && String(presetRaw).trim() ? String(presetRaw).trim() : "";
+      const seen = new Set([""]);
+      try {
+        const r = await fetch("/api/categories?_=" + Date.now(), { cache: "no-store" });
+        const j = await r.json();
+        for (const c of (j.categories || [])) {
+          const v = String(c || "").trim();
+          if (!v || seen.has(v)) continue;
+          seen.add(v);
+          addOpt(v, v);
+        }
+      } catch (_) {}
+      if (wanted && !seen.has(wanted)) addOpt(wanted, wanted);
+      const hasVal = [...sel.options].some((o) => o.value === wanted);
+      sel.value = hasVal ? wanted : "";
+      if (!hasVal && wanted) {
+        addOpt(wanted, wanted);
+        sel.value = wanted;
+      }
+      if (sel.value === "" && wanted === "") sel.selectedIndex = 0;
+    }
     function closeDescEditModal() {
       descEditId = null;
       document.getElementById("descEditModal").classList.remove("show");
@@ -267,6 +327,7 @@
       const catForSelect = it
         ? String(it.category || "").trim()
         : (cardEl ? String(cardEl.getAttribute("data-category") || "").trim() : "");
+      document.getElementById("descEditSyncToChecked").checked = false;
       await fillDescEditCategorySelect(catForSelect);
       document.getElementById("descEditModal").classList.add("show");
       requestAnimationFrame(() => {
@@ -288,18 +349,45 @@
     async function saveDescEdit() {
       if (descEditId == null) return;
       const description = document.getElementById("descEditTa").value;
+      const category = document.getElementById("descEditCat").value;
+      const syncToChecked = document.getElementById("descEditSyncToChecked").checked;
       const btn = document.getElementById("descEditSave");
       btn.disabled = true;
       try {
         const r = await fetch("/api/items/" + descEditId, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description, category: document.getElementById("descEditCat").value })
+          body: JSON.stringify({ description, category })
         });
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || "Save failed");
         const row = items.find((x) => Number(x.id) === descEditId);
         if (row && j.item) { row.description = j.item.description; row.category = j.item.category; }
+        if (syncToChecked) {
+          const checkedIds = [...document.querySelectorAll(".pick:checked")].map((c) => +c.dataset.id);
+          const targets = checkedIds.filter((id) => id !== descEditId);
+          const normalizedDesc = j.item ? j.item.description : description;
+          let fail = 0;
+          for (const id of targets) {
+            try {
+              const r2 = await fetch("/api/items/" + id, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ description: normalizedDesc })
+              });
+              const j2 = await r2.json();
+              if (!j2.ok) fail++;
+              else {
+                const rw = items.find((x) => Number(x.id) === id);
+                if (rw && j2.item) rw.description = j2.item.description;
+              }
+            } catch (_) {
+              fail++;
+            }
+          }
+          if (fail) alert("有 " + fail + " 項描述同步失敗");
+        }
+        document.getElementById("descEditSyncToChecked").checked = false;
         closeDescEditModal();
         load();
       } catch (e) {
@@ -326,7 +414,7 @@
         let j = await r.json();
         items = j.items || [];
         const debugEl = document.getElementById("debugOut");
-        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok;
+        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok + "\nUI: inv-batch-v1（有綠色批量設分類鈕；編輯視窗內可同步描述）";
         if (!r.ok) {
           grid.innerHTML = '<p class="col-span-full text-red-400">API 錯誤 ' + r.status + ': ' + (j.error || r.statusText) + '</p>';
           document.getElementById("countBadge").textContent = "";
@@ -388,10 +476,30 @@
       const n = [...document.querySelectorAll(".pick:checked")].length;
       document.getElementById("btnShare").disabled = n === 0;
       document.getElementById("btnBatchDel").disabled = n === 0;
+      document.getElementById("btnBatchCat").disabled = n === 0;
+    }
+    function closeBatchCatModal() {
+      document.getElementById("batchCatModal").classList.remove("show");
+    }
+    async function openBatchCatModal() {
+      const ids = [...document.querySelectorAll(".pick:checked")].map((c) => +c.dataset.id);
+      if (!ids.length) return;
+      document.getElementById("batchCatHint").textContent =
+        "已勾選 " + ids.length + " 項。套用後僅變更分類，各項描述維持原樣。";
+      await fillBatchCatSelect("");
+      document.getElementById("batchCatModal").classList.add("show");
     }
     lightboxPrev.onclick = () => lightboxShow(lightboxIdx - 1);
     lightboxNext.onclick = () => lightboxShow(lightboxIdx + 1);
     document.addEventListener("keydown", (e) => {
+      const bm = document.getElementById("batchCatModal");
+      if (bm && bm.classList.contains("show")) {
+        if (e.key === "Escape") {
+          closeBatchCatModal();
+          e.preventDefault();
+          return;
+        }
+      }
       const dm = document.getElementById("descEditModal");
       if (dm && dm.classList.contains("show")) {
         if (e.key === "Escape") {
@@ -456,6 +564,46 @@
       for (const id of ids) { await fetch("/api/items/" + id, { method: "DELETE" }); }
       alert("\u5df2\u522a\u9664");
       load();
+    };
+    document.getElementById("btnBatchCat").onclick = () => { void openBatchCatModal(); };
+    document.getElementById("batchCatCancel").onclick = closeBatchCatModal;
+    document.getElementById("batchCatBackdrop").onclick = closeBatchCatModal;
+    document.getElementById("batchCatConfirm").onclick = async () => {
+      const ids = [...document.querySelectorAll(".pick:checked")].map((c) => +c.dataset.id);
+      if (!ids.length) {
+        closeBatchCatModal();
+        return;
+      }
+      const category = document.getElementById("batchCatSelect").value;
+      const btn = document.getElementById("batchCatConfirm");
+      btn.disabled = true;
+      let fail = 0;
+      try {
+        for (const id of ids) {
+          const row = items.find((i) => Number(i.id) === id);
+          const description = row ? String(row.description ?? "") : "";
+          try {
+            const r = await fetch("/api/items/" + id, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ description, category })
+            });
+            const j = await r.json();
+            if (!j.ok) fail++;
+            else if (row && j.item) {
+              row.category = j.item.category;
+              row.description = j.item.description;
+            }
+          } catch (_) {
+            fail++;
+          }
+        }
+        if (fail) alert("有 " + fail + " 項分類更新失敗");
+        closeBatchCatModal();
+        load();
+      } finally {
+        btn.disabled = false;
+      }
     };
     document.getElementById("lightboxCloseTop").onclick = () => lightbox.classList.remove("show");
     const lightboxInner = document.getElementById("lightboxInner");

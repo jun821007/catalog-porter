@@ -6,7 +6,8 @@
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
     "dev:3001": "node -e \"process.env.PORT=3001;require('./backend/server.js')\"",
-    "normalize-descriptions": "node backend/scripts/batch-normalize-descriptions.js"
+    "normalize-descriptions": "node backend/scripts/batch-normalize-descriptions.js",
+    "bump:inv-cache": "node scripts/apply-inv-cache-bump.js"
   },
   "engines": {
     "node": ">=20"

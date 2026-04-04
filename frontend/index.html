@@ -69,7 +69,7 @@
     <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
     <nav class="flex gap-3 text-sm">
       <a href="/" class="text-amber-300 font-medium">抓取入庫</a>
-      <a href="/inventory" class="text-slate-400 hover:text-white">我的庫存</a>
+      <a href="/inventory?v=batch2" class="text-slate-400 hover:text-white">我的庫存</a>
       <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
@@ -102,7 +102,7 @@
     <div class="flex gap-3 mb-4 flex-wrap items-center">
       <span class="text-sm text-slate-500">勾選要入庫的項目後點擊按鈕</span>
       <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>入庫已選（<span id="selCount">0</span> 項）</button>
-      <a id="linkToInventory" href="/inventory" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
+      <a id="linkToInventory" href="/inventory?v=batch2" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
       <button id="btnAll" type="button" class="text-sm">全選</button>
       <button id="btnNone" type="button" class="text-sm">全不選</button>
     </div>

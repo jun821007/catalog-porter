@@ -713,13 +713,24 @@ app.use(express.json({ limit: '80mb' }));
 
 const { uploads } = getDataDir();
 app.use('/uploads', express.static(uploads));
-app.use(express.static(path.join(__dirname, '../frontend')));
 
-const htmlOpts = { headers: { 'Content-Type': 'text/html; charset=utf-8' } };
-app.get('/', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/index.html'), htmlOpts); });
-app.get('/inventory', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/inventory.html'), htmlOpts); });
-app.get('/merchants', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/merchants.html'), htmlOpts); });
-app.get('/share/:id', (req, res) => { res.sendFile(path.join(__dirname, '../frontend/share.html'), htmlOpts); });
+const htmlOpts = {
+  headers: {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+  },
+};
+const front = path.join(__dirname, '../frontend');
+app.get('/', (req, res) => { res.sendFile(path.join(front, 'index.html'), htmlOpts); });
+app.get('/inventory', (req, res) => { res.sendFile(path.join(front, 'inventory.html'), htmlOpts); });
+app.get('/inventory.html', (req, res) => { res.sendFile(path.join(front, 'inventory.html'), htmlOpts); });
+app.get('/merchants', (req, res) => { res.sendFile(path.join(front, 'merchants.html'), htmlOpts); });
+app.get('/merchants.html', (req, res) => { res.sendFile(path.join(front, 'merchants.html'), htmlOpts); });
+app.get('/share/:id', (req, res) => { res.sendFile(path.join(front, 'share.html'), htmlOpts); });
+
+app.use(express.static(front));
 
 app.post('/fetch', async (req, res) => {
   const url = (req.body && req.body.url) || req.query.url;
