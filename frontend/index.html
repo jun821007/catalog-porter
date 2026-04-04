@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>???亙澈</title>
+  <title>抓取入庫</title>
   <link rel="stylesheet" href="/styles.css?v=5" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -24,7 +24,7 @@
       background-color: #f8fafc !important;
       border-color: #cbd5e1 !important;
     }
-    /* ?? styles.css ?典? input 瘛梯??Chrome autofill 撘瑕暺? */
+    /* 覆寫 styles.css 與此頁 input 深色／Chrome autofill 強制黑字 */
     .surface-card input.field,
     .surface-card select.field {
       color: #0f172a !important;
@@ -68,63 +68,63 @@
   <header class="border-b border-slate-200 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
     <nav class="flex gap-3 text-sm">
-      <a href="/" class="text-amber-300 font-medium">???亙澈</a>
-      <a href="/inventory?v=batch6" class="text-slate-400 hover:text-white">??摨怠?</a>
-      <a href="/merchants" class="text-slate-400 hover:text-white">蝞∠??振</a>
+      <a href="/" class="text-amber-300 font-medium">抓取入庫</a>
+      <a href="/inventory?v=batch6" class="text-slate-400 hover:text-white">我的庫存</a>
+      <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
   <main class="max-w-7xl mx-auto p-4">
     <div class="surface-card rounded-xl p-6 border mb-6">
-      <span class="block text-sm mb-2 font-medium text-slate-700">?振?瑕?嚗??潔撩?嚗?振???乓恣??摰嗚摮???敹怎嚗摨怠?憿?亙澈?嚗?/span>
+      <span class="block text-sm mb-2 font-medium text-slate-700">商家說明：請先到「管理商家」建立商家；選取後會載入該商家儲存的商品快照。入庫流程與「我的庫存」相同。</span>
       <div class="flex flex-wrap gap-2 items-end">
         <div class="flex-1 min-w-[200px] max-w-md">
-          <label for="merchantSelect" class="block text-xs text-slate-600 mb-1">?詨?摰?/label>
+          <label for="merchantSelect" class="block text-xs text-slate-600 mb-1">選擇商家</label>
           <select id="merchantSelect" class="field w-full border rounded-lg px-3 py-2 text-sm">
-            <option value="">?芷??/option>
+            <option value="">請選擇</option>
           </select>
         </div>
       </div>
-      <p class="text-xs text-slate-500 mt-2">???翰?扳??臭?憛怎雯?嚗???憪????摮祟?詨翰?扼敹怎???芸?撣嗅?恣??摰嗚?摮?雯?嚗??????憭??洵銝??????嚗?????憪???胯憓?蝺刻摩隢?恣??摰嗚?/p>
+      <p class="text-xs text-slate-500 mt-2">有商品快照時可只填關鍵字篩選，不需網址。無快照時請填相簿網址（或至「管理商家」儲存來源）。若要線上擷取，請貼上相簿網址並按「開始擷取」。新增或編輯商家請至「管理商家」。</p>
     </div>
     <div class="surface-card rounded-xl p-6 border mb-6">
-      <h2 class="text-sm font-medium text-slate-800 mb-3">敺桀??詨?蝬脣???</h2>
-      <label for="url" class="block text-sm mb-1">敺桀??詨?蝬脣? (wecatalog 蝑?</label>
-      <input id="url" type="url" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="https://...嚗?銝???敹‵嚗?敹怎??征嚗? />
-      <label for="keyword" class="block text-sm mb-1">???摮??舐?蝛綽?</label>
-      <input id="keyword" type="text" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="蝭拚?膩?急迨摮? />
+      <h2 class="text-sm font-medium text-slate-800 mb-3">微前端相簿網址與擷取</h2>
+      <label for="url" class="block text-sm mb-1">微前端相簿網址 (wecatalog 等)</label>
+      <input id="url" type="url" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="https://...（擷取時必填；若有快照可留空）" />
+      <label for="keyword" class="block text-sm mb-1">關鍵字篩選（可留空）</label>
+      <input id="keyword" type="text" class="field w-full border rounded-lg px-3 py-2 mb-4" placeholder="篩選描述或其他文字" />
       <label class="flex items-center gap-2 mb-4">
         <input type="checkbox" id="deepScrape" checked />
-        <span class="text-sm text-slate-600">瘛勗?詨????券??嚗??ｇ?</span>
+        <span class="text-sm text-slate-600">深入擷取相簿更多圖片（較慢）</span>
       </label>
-      <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium text-white">????</button>
+      <button id="btnFetch" class="bg-amber-600 hover:bg-amber-500 px-6 py-2 rounded-lg font-medium text-white">開始擷取</button>
       <span id="status" class="ml-4 text-slate-500"></span>
     </div>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
-      <span class="text-sm text-slate-500">?暸閬摨怎??敺?????/span>
-      <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>?亙澈撌脤嚗?span id="selCount">0</span> ??</button>
-      <a id="linkToInventory" href="/inventory?v=batch6" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">????摨怠?</a>
-      <button id="btnAll" type="button" class="text-sm">?券</button>
-      <button id="btnNone" type="button" class="text-sm">?其???/button>
+      <span class="text-sm text-slate-500">勾選要入庫的項目後按入庫</span>
+      <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>入庫已選（<span id="selCount">0</span> 項）</button>
+      <a id="linkToInventory" href="/inventory?v=batch6" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
+      <button id="btnAll" type="button" class="text-sm">全選</button>
+      <button id="btnNone" type="button" class="text-sm">全不選</button>
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
   </main>
   <div id="importCatModal" role="dialog" aria-modal="true" aria-labelledby="importCatTitle">
     <div id="importCatBackdrop" class="absolute inset-0"></div>
     <div class="panel surface-card rounded-xl border p-5 shadow-xl">
-      <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">?豢??亙澈??</h2>
-      <p class="text-xs text-slate-500 mt-1 mb-4">?喳??亙澈 <span id="importCatCount">0</span> ??/p>
-      <label for="importCatSelect" class="block text-sm text-slate-600 mb-1">??</label>
+      <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">選擇入庫分類</h2>
+      <p class="text-xs text-slate-500 mt-1 mb-4">即將入庫 <span id="importCatCount">0</span> 項</p>
+      <label for="importCatSelect" class="block text-sm text-slate-600 mb-1">分類</label>
       <select id="importCatSelect" class="field w-full border rounded-lg px-3 py-2 mb-3 text-sm"></select>
-      <p class="text-xs text-slate-400 mb-4 leading-relaxed">?身?舫????SON ?桃??亙歇??category 甈?嚗?隞亥府蝑皞?/p>
+      <p class="text-xs text-slate-400 mb-4 leading-relaxed">預設：下拉未選分類。JSON 條目若已有 category 欄位，以該筆為準。</p>
       <div class="flex gap-2 justify-end">
-        <button type="button" id="importCatCancel" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white hover:bg-slate-50">??</button>
-        <button type="button" id="importCatConfirm" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">蝣箄??亙澈</button>
+        <button type="button" id="importCatCancel" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white hover:bg-slate-50">取消</button>
+        <button type="button" id="importCatConfirm" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">確認入庫</button>
       </div>
     </div>
   </div>
 
 
-  <button type="button" id="floatImport" disabled title="?亙澈">?亙澈</button>
+  <button type="button" id="floatImport" disabled title="入庫">入庫</button>
   <script>
     const grid = document.getElementById('grid');
     const statusEl = document.getElementById('status');
@@ -173,7 +173,7 @@
       sel.innerHTML = '';
       const o0 = document.createElement('option');
       o0.value = '';
-      o0.textContent = '?芷??;
+      o0.textContent = '請選擇';
       sel.appendChild(o0);
       try {
         const r = await fetch('/api/merchants?_=' + Date.now(), { cache: 'no-store' });
@@ -198,7 +198,7 @@
       try {
         const r = await fetch('/api/merchants/' + encodeURIComponent(mid) + '?_=' + Date.now(), { cache: 'no-store' });
         const j = await r.json();
-        if (!r.ok || !j.ok || !j.merchant) throw new Error(j.message || j.error || '頛憭望?');
+        if (!r.ok || !j.ok || !j.merchant) throw new Error(j.message || j.error || '無法載入商家');
         const m = j.merchant;
         const snap = m.catalogItems;
         const sourceList = m.sources || [];
@@ -208,7 +208,7 @@
           cachedMerchantSnapshot = snap.slice();
           items = snap.slice();
           importSkipEnrich = true;
-          statusEl.textContent = '撌脰??乓? + selectedMerchantLabel + '?翰??' + snap.length + ' 蝑??臭?憛怎雯???憪????摮祟?賂???亙?詨摨恬?';
+          statusEl.textContent = '已載入商家「' + selectedMerchantLabel + '」快照，共 ' + snap.length + ' 筆；可關鍵字篩選後入庫。';
           renderGrid();
           saveToStorage();
         } else {
@@ -219,16 +219,16 @@
           if (autoUrl) {
             urlEl.value = autoUrl;
             const n = sourceUrls.length;
-            statusEl.textContent = '?? + selectedMerchantLabel + '?歇敺敺葆?亦?雯?嚗? + (n > 1 ? '??' + n + ' ??撌脤蝚砌???????' : '蝞∠??振?摮?) + '嚗??憪???銝???;
+            statusEl.textContent = '「' + selectedMerchantLabel + '」尚無快照，已自動帶入相簿網址' + (n > 1 ? '（共 ' + n + ' 個，可改選其他）' : '') + '。仍可依關鍵字篩選或填網址擷取。';
           } else if (sourceUrls.length) {
-            statusEl.textContent = '?? + selectedMerchantLabel + '?蝞∠??振摮?蝬脣??航?臬??????⊥??芸?撣嗅嚗???鞎潛??蝬脣???;
+            statusEl.textContent = '「' + selectedMerchantLabel + '」在管理商家中的網址無法自動帶入相簿；請手動貼上相簿網址。';
           } else {
-            statusEl.textContent = '?? + selectedMerchantLabel + '???∪??翰?扯??詨?蝬脣?嚗??喋恣??摰嗚憓?;
+            statusEl.textContent = '「' + selectedMerchantLabel + '」尚無商品快照與來源網址；請至「管理商家」新增。';
           }
           saveToStorage();
         }
       } catch (e) {
-        alert(e.message || '頛?振憭望?');
+        alert(e.message || '載入商家失敗');
       }
     }
     function proxy(u) { return '/proxy?url=' + encodeURIComponent(u); }
@@ -289,14 +289,14 @@
       sel.innerHTML = '';
       const o0 = document.createElement('option');
       o0.value = '';
-      o0.textContent = '?芸?憿?;
+      o0.textContent = '請選擇分類';
       sel.appendChild(o0);
       try {
         const r = await fetch('/api/categories?_=' + Date.now(), { cache: 'no-store' });
         const j = await r.json();
         if (j.ok && Array.isArray(j.categories)) {
           j.categories.forEach((c) => {
-            if (!c || c === '?芸?憿?) return;
+            if (!c) return;
             if ([...sel.options].some((opt) => opt.value === c)) return;
             const o = document.createElement('option');
             o.value = c;
@@ -361,16 +361,16 @@
         if (mid && cachedMerchantSnapshot && cachedMerchantSnapshot.length) {
           items = filterItemsByKeyword(cachedMerchantSnapshot, keyword);
           importSkipEnrich = true;
-          const kwPart = keyword ? '?摮? + keyword + '?祟?詨? ' : '';
-          statusEl.textContent = kwPart + items.length + ' 蝑??? + selectedMerchantLabel + '?翰?改??臬?詨??亙澈嚗?;
+          const kwPart = keyword ? '關鍵字「' + keyword + '」篩選後 ' : '';
+          statusEl.textContent = kwPart + items.length + ' 筆（來自「' + selectedMerchantLabel + '」快照）；勾選後可入庫。';
           renderGrid();
           saveToStorage();
           return;
         }
-        alert('隢票銝??蝬脣?隞亦?銝??????豢?撌脫???敹怎??摰?);
+        alert('請填寫相簿網址，或選擇有快照的商家後以關鍵字篩選。');
         return;
       }
-      statusEl.textContent = document.getElementById('deepScrape').checked ? '??銝哨?瘛勗?詨?頛嚗? 2?? ??嚗?..' : '??銝哨??航? 1?? ??嚗?..';
+      statusEl.textContent = document.getElementById('deepScrape').checked ? '擷取中（深入相簿，約 2–12 分鐘）…' : '擷取中（約 1–8 分鐘）…';
       grid.innerHTML = '';
       try {
         const ctrl = new AbortController();
@@ -378,38 +378,38 @@
         const timeoutMs = keyword ? 2*60*1000 : (deepScrape ? 12*60*1000 : 8*60*1000);
         const t = setTimeout(() => ctrl.abort(), timeoutMs);
         let r; try { r = await fetch('/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, keyword, deepScrape }), signal: ctrl.signal }); } finally { clearTimeout(t); }
-        
+
         const j = await r.json();
-        if (!j.ok) throw new Error(j.error || '憭望?');
+        if (!j.ok) throw new Error(j.error || '擷取失敗');
         items = j.items || [];
         importSkipEnrich = false;
         const ts = typeof j.totalScraped === 'number' ? j.totalScraped : items.length;
-        statusEl.textContent = (j.keyword ? '????' + ts + ' 蝑??摮? ' + items.length + ' 蝑? : '??' + items.length + ' 蝑?) + '嚗歇?蝻箄疏/?桃?嚗?;
-        if (j.hint) statusEl.textContent += ' ??' + j.hint;
+        statusEl.textContent = (j.keyword ? '關鍵字命中 ' + ts + ' 筆，顯示 ' + items.length + ' 筆' : '共 ' + items.length + ' 筆') + '；勾選後可入庫。';
+        if (j.hint) statusEl.textContent += ' — ' + j.hint;
         renderGrid();
         saveToStorage();
       } catch (e) {
         statusEl.textContent = '';
-        alert(e.name === 'AbortError' ? '???暹?嚗???8 ??嚗???暸?楛?亦??閰艾? : (e.message || '??憭望?'));
+        alert(e.name === 'AbortError' ? '擷取逾時（最長約 8–12 分鐘）；可取消「深入擷取」或縮小範圍。' : (e.message || '擷取失敗'));
       }
     };
     document.getElementById('btnAll').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = true; }); updateSel(); saveToStorage(); };
     document.getElementById('btnNone').onclick = () => { grid.querySelectorAll('.pick').forEach(c => { c.checked = false; }); updateSel(); saveToStorage(); };
     async function doImport(sel, defaultCategory) {
-      statusEl.textContent = '?亙澈銝?..';
+      statusEl.textContent = '入庫中…';
       try {
         const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel, skipEnrich: importSkipEnrich, defaultCategory: defaultCategory || '' }) });
         const j = await r.json();
-        if (!r.ok) throw new Error(j.error || '?亙澈憭望?');
-        if (j.ok === false) throw new Error(j.error || '?亙澈憭望?');
+        if (!r.ok) throw new Error(j.error || '入庫失敗');
+        if (j.ok === false) throw new Error(j.error || '入庫失敗');
         const n = (j.saved || []).length;
         if (n === 0) {
-          alert('?亙澈 0 蝑?隢Ⅱ隤歇?暸??');
+          alert('入庫 0 筆；請確認已選項目與分類。');
           statusEl.textContent = '';
           saveToStorage();
         } else {
-          statusEl.textContent = '撌脣摨?' + n + ' 蝑?;
-          alert('撌脣摨怠???);
+          statusEl.textContent = '已入庫 ' + n + ' 筆';
+          alert('入庫完成');
           document.getElementById('linkToInventory').classList.remove('hidden');
           saveToStorage();
         }
@@ -445,4 +445,3 @@
   </script>
 </body>
 </html>
-

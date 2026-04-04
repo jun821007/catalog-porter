@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>蝞∠??振</title>
+  <title>管理商家</title>
   <link rel="stylesheet" href="/styles.css?v=5" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
@@ -57,85 +57,85 @@
   <header class="border-b border-slate-200 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
     <nav class="flex gap-3 text-sm">
-      <a href="/" class="text-slate-400 hover:text-white">???亙澈</a>
-      <a href="/inventory?v=batch6" class="text-slate-400 hover:text-white">??摨怠?</a>
-      <a href="/merchants" class="text-amber-300 font-medium">蝞∠??振</a>
+      <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
+      <a href="/inventory?v=batch6" class="text-slate-400 hover:text-white">我的庫存</a>
+      <a href="/merchants" class="text-amber-300 font-medium">管理商家</a>
     </nav>
   </header>
   <main class="max-w-7xl mx-auto p-4">
     <div class="surface-card rounded-xl p-6 border mb-6">
-      <h2 class="text-lg font-semibold text-slate-800 mb-2">?振?瑕?</h2>
-      <p class="text-xs text-slate-500 mb-4">摮隡箸??剁??迂?函??臭???雯?????JSON ??敹怎銝雿萄摮?銝??芸??亙澈????振??頛閰脣翰?找??暸?亙澈??挾鞎潛雯?敺????交迨畾萸??敺??摮?/p>
+      <h2 class="text-lg font-semibold text-slate-800 mb-2">商家列表</h2>
+      <p class="text-xs text-slate-500 mb-4">在此建立商家名稱、相簿網址與多段 JSON／HAR；儲存後「抓取入庫」可載入快照。下方可預覽網格後再入庫。</p>
       <div id="merchantList" class="text-sm space-y-2 mb-4 min-h-[2rem]"></div>
       <hr class="border-slate-200 my-3" />
-      <h3 id="merchantFormHeading" class="text-sm font-medium text-slate-700 mb-2">?啣??振</h3>
-      <label class="block text-xs text-slate-600 mb-1" for="newMerchantName">?迂嚗蝡銝嚗?/label>
+      <h3 id="merchantFormHeading" class="text-sm font-medium text-slate-700 mb-2">新增商家</h3>
+      <label class="block text-xs text-slate-600 mb-1" for="newMerchantName">名稱（全站唯一）</label>
       <input id="newMerchantName" type="text" class="field w-full border rounded-lg px-3 py-2 mb-2 text-sm" autocomplete="off" />
-      <label class="block text-xs text-slate-600 mb-1" for="merchantPasteInput">鞎潔??詨?蝬脣???????摮?JSON</label>
-      <textarea id="merchantPasteInput" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[88px]" placeholder="https://... ?票?湔挾 JSON" spellcheck="false"></textarea>
+      <label class="block text-xs text-slate-600 mb-1" for="merchantPasteInput">貼上相簿網址或包含網址的 JSON</label>
+      <textarea id="merchantPasteInput" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[88px]" placeholder="https://... 或整段 JSON" spellcheck="false"></textarea>
       <div class="flex flex-wrap gap-2 mt-2 mb-2">
-        <button type="button" id="btnMerchantPasteAdd" class="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-medium">?甇斗挾</button>
-        <button type="button" id="btnMerchantStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">皜征敺???/button>
-        <button type="button" id="btnMerchantNewMode" class="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-800 text-xs bg-violet-50 hidden">?寧?啣??振</button>
+        <button type="button" id="btnMerchantPasteAdd" class="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-medium">加入此段</button>
+        <button type="button" id="btnMerchantStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空待加入</button>
+        <button type="button" id="btnMerchantNewMode" class="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-800 text-xs bg-violet-50 hidden">改為新增商家</button>
       </div>
       <div class="mb-2">
-        <span class="text-xs text-slate-600">撌脣???<span id="merchantStagingCount">0</span> ?雯?</span>
+        <span class="text-xs text-slate-600">已加入 <span id="merchantStagingCount">0</span> 個網址</span>
         <div id="merchantStagingList" class="mt-2 flex flex-wrap gap-1.5 min-h-[1.5rem]"></div>
       </div>
-      <p class="text-xs text-slate-500 mb-2 mt-4">憭挾 JSON嚗票銝?????JSON 甇斗挾?蝝舐??訾遢嚗摮??蔥嚗楊頛舀???JSON ?蔥?亙??翰?改??芸??駁?嚗?/p>
-      <label class="block text-xs text-slate-600 mb-1" for="jsonPaste">敺桀??詨? JSON嚗esult.items嚗?/label>
+      <p class="text-xs text-slate-500 mb-2 mt-4">多段 JSON：貼上後按「加入此段」可累積多份，儲存時合併；編輯時亦會合併。未單獨加入的貼上內容仍會在儲存時併入。</p>
+      <label class="block text-xs text-slate-600 mb-1" for="jsonPaste">微前端 JSON（result.items）</label>
       <textarea id="jsonPaste" class="field w-full border rounded-lg px-3 py-2 font-mono text-xs min-h-[120px]" placeholder="{ &quot;result&quot;: { &quot;items&quot;: [...] } }" spellcheck="false"></textarea>
       <div class="flex flex-wrap gap-2 mt-2 mb-2">
-        <button type="button" id="btnJsonStagingAdd" class="px-3 py-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-900 text-xs font-medium">? JSON 甇斗挾</button>
-        <button type="button" id="btnJsonStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">皜征 JSON 敺???/button>
+        <button type="button" id="btnJsonStagingAdd" class="px-3 py-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-900 text-xs font-medium">加入 JSON 此段</button>
+        <button type="button" id="btnJsonStagingClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空 JSON 待加入</button>
       </div>
       <div class="flex flex-wrap gap-2 mt-2 mb-2 items-center">
         <input id="harFileInput" type="file" accept=".har,application/json" class="hidden" />
-        <button type="button" id="btnHarPick" class="px-3 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-medium">銝 Proxyman HAR 瑼?/button>
-        <button type="button" id="btnHarClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">皜征 HAR 敺???/button>
-        <span class="text-xs text-slate-600">撌脣???<span id="harStagingCount">0</span> 蝑?HAR 敹怎?</span>
+        <button type="button" id="btnHarPick" class="px-3 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-medium">選擇 Proxyman HAR 檔</button>
+        <button type="button" id="btnHarClear" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs bg-white">清空 HAR 待加入</button>
+        <span class="text-xs text-slate-600">已加入 <span id="harStagingCount">0</span> 筆 HAR 項目</span>
       </div>
-      <div id="harDropzone" class="border border-dashed border-emerald-300 rounded-lg px-3 py-3 text-xs text-slate-600 bg-emerald-50/40 mb-2">? Proxyman HAR 瑼?ㄐ嚗??芸?閫?? album/personal/all ??銝血?雿萸?/div>
+      <div id="harDropzone" class="border border-dashed border-emerald-300 rounded-lg px-3 py-3 text-xs text-slate-600 bg-emerald-50/40 mb-2">拖放 Proxyman HAR 檔到此（需含 album/personal/all 等 API 回應）</div>
       <div class="mb-4">
-        <span class="text-xs text-slate-600">撌脣???<span id="jsonStagingCount">0</span> 畾?JSON嚗摮??蔥嚗?/span>
+        <span class="text-xs text-slate-600">已加入 <span id="jsonStagingCount">0</span> 段 JSON（儲存時合併）</span>
         <div id="jsonStagingList" class="mt-2 flex flex-wrap gap-1.5 min-h-[1.5rem]"></div>
       </div>
       <div class="flex gap-2 justify-end mt-2 flex-wrap">
-        <button type="button" id="merchantFormSave" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">?脣?</button>
+        <button type="button" id="merchantFormSave" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium">儲存</button>
       </div>
     </div>
     <p id="status" class="text-sm text-slate-500 mb-3 min-h-[1.25rem]"></p>
     <details id="jsonPanel" class="surface-card rounded-xl p-6 border mb-6">
-      <summary class="cursor-pointer text-sm font-medium select-none">?汗?”嚗圾?蒂頛銝蝬脫嚗?/summary>
-      <p class="text-xs json-hint mt-2 mb-2 leading-relaxed">???嫘歇?畾菜???頛荔??怠?鞎潔?獢摰嫣?雿菔圾??暸敺摨恬?雿輻 imgsSrc ?券??嚗摨急?銝?汗?冽楛????/p>
-      <button type="button" id="btnParseJson" class="mt-2 px-4 py-2 rounded-lg text-sm font-medium">閫??銝西??亙?銵?/button>
+      <summary class="cursor-pointer text-sm font-medium select-none">預覽網格（解析後載入下方）</summary>
+      <p class="text-xs json-hint mt-2 mb-2 leading-relaxed">合併已加入段數後，解析貼上框內容並載入網格；入庫時使用 imgsSrc 等欄位（與庫存一致）。</p>
+      <button type="button" id="btnParseJson" class="mt-2 px-4 py-2 rounded-lg text-sm font-medium">解析並載入網格</button>
     </details>
     <div class="flex gap-3 mb-4 flex-wrap items-center">
-      <span class="text-sm text-slate-500">?暸閬摨怎??敺?????/span>
-      <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>?亙澈撌脤嚗?span id="selCount">0</span> ??</button>
-      <a id="linkToInventory" href="/inventory?v=batch6" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">????摨怠?</a>
-      <button id="btnAll" type="button" class="text-sm">?券</button>
-      <button id="btnNone" type="button" class="text-sm">?其???/button>
+      <span class="text-sm text-slate-500">勾選要入庫的項目後按入庫</span>
+      <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>入庫已選（<span id="selCount">0</span> 項）</button>
+      <a id="linkToInventory" href="/inventory?v=batch6" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
+      <button id="btnAll" type="button" class="text-sm">全選</button>
+      <button id="btnNone" type="button" class="text-sm">全不選</button>
     </div>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
   </main>
   <div id="importCatModal" role="dialog" aria-modal="true" aria-labelledby="importCatTitle">
     <div id="importCatBackdrop" class="absolute inset-0"></div>
     <div class="panel surface-card rounded-xl border p-5 shadow-xl">
-      <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">?豢??亙澈??</h2>
-      <p class="text-xs text-slate-500 mt-1 mb-4">?喳??亙澈 <span id="importCatCount">0</span> ??/p>
-      <label for="importCatSelect" class="block text-sm text-slate-600 mb-1">??</label>
+      <h2 id="importCatTitle" class="text-base font-semibold text-slate-800">選擇入庫分類</h2>
+      <p class="text-xs text-slate-500 mt-1 mb-4">即將入庫 <span id="importCatCount">0</span> 項</p>
+      <label for="importCatSelect" class="block text-sm text-slate-600 mb-1">分類</label>
       <select id="importCatSelect" class="field w-full border rounded-lg px-3 py-2 mb-3 text-sm"></select>
-      <p class="text-xs text-slate-400 mb-4 leading-relaxed">?身?舫????SON ?桃??亙歇??category 甈?嚗?隞亥府蝑皞?/p>
+      <p class="text-xs text-slate-400 mb-4 leading-relaxed">預設：下拉未選分類。JSON 條目若已有 category 欄位，以該筆為準。</p>
       <div class="flex gap-2 justify-end">
-        <button type="button" id="importCatCancel" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white hover:bg-slate-50">??</button>
-        <button type="button" id="importCatConfirm" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">蝣箄??亙澈</button>
+        <button type="button" id="importCatCancel" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 bg-white hover:bg-slate-50">取消</button>
+        <button type="button" id="importCatConfirm" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">確認入庫</button>
       </div>
     </div>
   </div>
 
 
-  <button type="button" id="floatImport" disabled title="?亙澈">?亙澈</button>
+  <button type="button" id="floatImport" disabled title="入庫">入庫</button>
   <script src="/merchant-json.js"></script>
   <script>
     const grid = document.getElementById('grid');
@@ -167,7 +167,7 @@
       document.getElementById('newMerchantName').value = '';
       document.getElementById('merchantPasteInput').value = '';
       document.getElementById('jsonPaste').value = '';
-      document.getElementById('merchantFormHeading').textContent = '?啣??振';
+      document.getElementById('merchantFormHeading').textContent = '\u65b0\u589e\u5546\u5bb6';
       document.getElementById('btnMerchantNewMode').classList.add('hidden');
       renderMerchantStaging();
       renderJsonStaging();
@@ -178,7 +178,7 @@
       const seen = new Set();
       const out = [];
       function add(u) {
-        let s = String(u || '').trim().replace(/[\s嚗?;嚗+$/g, '');
+        let s = String(u || '').trim().replace(/[\s,;]+$/g, '');
         if (!/^https?:\/\//i.test(s)) return;
         if (seen.has(s)) return;
         seen.add(s);
@@ -212,7 +212,7 @@
         const t = document.createElement('span');
         t.className = 'truncate';
         t.title = u;
-        t.textContent = u.length > 48 ? u.slice(0, 46) + '?? : u;
+        t.textContent = u.length > 48 ? u.slice(0, 46) + '\u2026' : u;
         const x = document.createElement('button');
         x.type = 'button';
         x.className = 'text-slate-500 hover:text-red-600 shrink-0';
@@ -239,7 +239,7 @@
         t.className = 'truncate';
         const preview = raw.replace(/\s+/g, ' ').trim();
         t.title = preview.slice(0, 500);
-        t.textContent = '畾?' + (idx + 1) + ' 繚 ' + (preview.length > 36 ? preview.slice(0, 34) + '?? : preview);
+        t.textContent = '\u7b2c' + (idx + 1) + ' \u6bb5 \u00b7 ' + (preview.length > 36 ? preview.slice(0, 34) + '\u2026' : preview);
         const x = document.createElement('button');
         x.type = 'button';
         x.className = 'text-slate-500 hover:text-red-600 shrink-0';
@@ -339,7 +339,7 @@
       const raw = document.getElementById('merchantPasteInput').value;
       const found = extractUrlsFromPaste(raw);
       if (!found.length) {
-        alert('\u6b64\u6bb5\u672a\u8fa8\u8b58\u5230 http(s) \u7db2\u5740\uff0c\u8acb\u78ba\u8a8d\u683c\u5f0f');
+        alert('\u5165\u5eab 0 \u7b46\uff1b\u8acb\u78ba\u8a8d\u5df2\u9078\u9805\u76ee\u8207\u5206\u985e\u3002');
         return;
       }
       for (const u of found) {
@@ -374,21 +374,21 @@
     }
     async function saveMerchantForm() {
       const name = document.getElementById('newMerchantName').value.trim();
-      if (!name) { alert('隢撓?亙?摰嗅?蝔?); return; }
+      if (!name) { alert('\u8acb\u8f38\u5165\u5546\u5bb6\u540d\u7a31'); return; }
       const jsonPasteVal = document.getElementById('jsonPaste').value.trim();
       const jsonIntent = jsonStagingSegments.length > 0 || jsonPasteVal.length > 0 || harStagingCatalogItems.length > 0;
       const pruned = pruneJsonStagingToUsable(jsonStagingSegments);
       if (pruned.dropped > 0) {
         jsonStagingSegments = pruned.segments;
         renderJsonStaging();
-        statusEl.textContent = '撌脩??' + pruned.dropped + ' 畾萇??JSON嚗?????∪?嚗??園?撌脩???;
+        statusEl.textContent = '\u5df2\u79fb\u9664 ' + pruned.dropped + ' \u6bb5\u7121\u7528 JSON\uff08\u50c5\u4fdd\u7559\u53ef\u89e3\u6790\u6bb5\u843d\uff09\u3002';
       }
       const lastPasteEffective = jsonPasteVal && jsonSegmentHasUsableProductData(jsonPasteVal) ? jsonPasteVal : '';
       let newFromJson = [];
       try {
         newFromJson = mapFromJsonSegments(jsonStagingSegments, lastPasteEffective);
       } catch (e) {
-        alert(e.message || 'JSON 閫??憭望?');
+        alert(e.message || 'JSON \u89e3\u6790\u5931\u6557');
         return;
       }
       const incomingCatalogItems = mergeNormalizedCatalogItems(newFromJson, harStagingCatalogItems);
@@ -433,19 +433,19 @@
           });
         }
         const j = await r.json();
-        if (!r.ok) throw new Error(j.message || j.error || '?脣?憭望?');
-        if (!j.ok) throw new Error(j.message || j.error || '?脣?憭望?');
+        if (!r.ok) throw new Error(j.message || j.error || '\u5132\u5b58\u5931\u6557');
+        if (!j.ok) throw new Error(j.message || j.error || '\u5132\u5b58\u5931\u6557');
         resetMerchantForm();
         await loadMerchantsForList();
         renderMerchantList();
-        alert(wasEdit ? '撌脣摮? : '撌脫憓?);
-      } catch (e) { alert(e.message || '?脣?憭望?'); }
+        alert(wasEdit ? '\u5df2\u66f4\u65b0' : '\u5df2\u65b0\u589e');
+      } catch (e) { alert(e.message || '\u5132\u5b58\u5931\u6557'); }
     }
     function renderMerchantList() {
       const el = document.getElementById('merchantList');
       el.innerHTML = '';
       if (!merchantsCache.length) {
-        el.innerHTML = '<p class="text-slate-500 text-xs">撠?振嚗??潔??寞憓?/p>';
+        el.innerHTML = '<p class="text-slate-500 text-xs">\u5c1a\u7121\u5546\u5bb6\uff0c\u8acb\u65bc\u4e0b\u65b9\u65b0\u589e\u3002</p>';
         return;
       }
       merchantsCache.forEach((m) => {
@@ -453,25 +453,25 @@
         row.className = 'flex items-center justify-between gap-2 py-2 border-b border-slate-100';
         const n = (m.sources && m.sources.length) ? m.sources.length : 0;
         const snap = typeof m.catalogItemCount === 'number' ? m.catalogItemCount : 0;
-        row.innerHTML = '<span class="truncate font-medium text-slate-800">' + (m.name || '').replace(/</g, '&lt;') + '</span><span class="text-xs text-slate-500">' + n + ' 蝬脣? 繚 ' + snap + ' 蝑翰??/span>';
+        row.innerHTML = '<span class="truncate font-medium text-slate-800">' + (m.name || '').replace(/</g, '&lt;') + '</span><span class="text-xs text-slate-500">' + n + ' \u500b\u7db2\u5740 \u00b7 ' + snap + ' \u7b46\u5feb\u7167</span>';
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'text-xs text-red-600 shrink-0';
-        del.textContent = '?芷';
+        del.textContent = '\u522a\u9664';
         del.onclick = async () => {
-          if (!confirm('?芷甇文?摰嗆敺?')) return;
+          if (!confirm('\u78ba\u5b9a\u522a\u9664\u6b64\u5546\u5bb6\uff1f')) return;
           try {
             const r = await fetch('/api/merchants/' + encodeURIComponent(m.id), { method: 'DELETE' });
             const j = await r.json();
-            if (!j.ok) throw new Error(j.error || '?芷憭望?');
+            if (!j.ok) throw new Error(j.error || '\u522a\u9664\u5931\u6557');
             await loadMerchantsForList();
             renderMerchantList();
-          } catch (e) { alert(e.message || '?芷憭望?'); }
+          } catch (e) { alert(e.message || '\u522a\u9664\u5931\u6557'); }
         };
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'text-xs text-violet-700 shrink-0 mr-1';
-        edit.textContent = '蝺刻摩';
+        edit.textContent = '\u7de8\u8f2f';
         edit.onclick = () => { void startEditMerchant(m.id); };
         row.appendChild(edit);
         row.appendChild(del);
@@ -524,14 +524,14 @@ async function refreshImportCategorySelect() {
       sel.innerHTML = '';
       const o0 = document.createElement('option');
       o0.value = '';
-      o0.textContent = '?芸?憿?;
+      o0.textContent = '\u8acb\u9078\u64c7\u5206\u985e';
       sel.appendChild(o0);
       try {
         const r = await fetch('/api/categories?_=' + Date.now(), { cache: 'no-store' });
         const j = await r.json();
         if (j.ok && Array.isArray(j.categories)) {
           j.categories.forEach((c) => {
-            if (!c || c === '?芸?憿?) return;
+            if (!c) return;
             if ([...sel.options].some((opt) => opt.value === c)) return;
             const o = document.createElement('option');
             o.value = c;
@@ -615,24 +615,24 @@ async function refreshImportCategorySelect() {
       }, 0);
     };
     async function doImport(sel, defaultCategory) {
-      statusEl.textContent = '?亙澈銝?..';
+      statusEl.textContent = "\u5165\u5eab\u4e2d\u2026";
       try {
-        const r = await fetch('/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: sel, skipEnrich: importSkipEnrich, defaultCategory: defaultCategory || '' }) });
+        const r = await fetch("/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: sel, skipEnrich: importSkipEnrich, defaultCategory: defaultCategory || "" }) });
         const j = await r.json();
-        if (!r.ok) throw new Error(j.error || '?亙澈憭望?');
-        if (j.ok === false) throw new Error(j.error || '?亙澈憭望?');
+        if (!r.ok) throw new Error(j.error || "\u5165\u5eab\u5931\u6557");
+        if (j.ok === false) throw new Error(j.error || "\u5165\u5eab\u5931\u6557");
         const n = (j.saved || []).length;
         if (n === 0) {
-          alert('?亙澈 0 蝑?隢Ⅱ隤歇?暸??');
-          statusEl.textContent = '';
+          alert("\u5165\u5eab 0 \u7b46\uff1b\u8acb\u78ba\u8a8d\u5df2\u9078\u9805\u76ee\u8207\u5206\u985e\u3002");
+          statusEl.textContent = "";
           saveToStorage();
         } else {
-          statusEl.textContent = '撌脣摨?' + n + ' 蝑?;
-          alert('撌脣摨怠???);
-          document.getElementById('linkToInventory').classList.remove('hidden');
+          statusEl.textContent = "\u5df2\u5165\u5eab " + n + " \u7b46";
+          alert("\u5165\u5eab\u5b8c\u6210");
+          document.getElementById("linkToInventory").classList.remove("hidden");
           saveToStorage();
         }
-      } catch (e) { alert(e.message); statusEl.textContent = ''; }
+      } catch (e) { alert(e.message); statusEl.textContent = ""; }
     }
     document.getElementById('btnImport').onclick = () => {
       const sel = [...document.querySelectorAll('.pick:checked')].map(c => items[+c.dataset.i]);
@@ -652,9 +652,9 @@ async function refreshImportCategorySelect() {
     document.getElementById('btnMerchantNewMode').onclick = () => { resetMerchantForm(); };
     document.getElementById('btnJsonStagingAdd').onclick = () => {
       const raw = document.getElementById('jsonPaste').value.trim();
-      if (!raw) { alert('隢?鞎潔? JSON'); return; }
+      if (!raw) { alert('\u8acb\u8cbc\u4e0a JSON'); return; }
       if (!jsonSegmentHasUsableProductData(raw)) {
-        statusEl.textContent = '甇斗挾?⊥???????items嚗??嚗歇?仿??芸???;
+        statusEl.textContent = '\u6b64\u6bb5\u7121\u53ef\u7528\u7684 result.items\uff0c\u8acb\u8cbc\u4e0a\u6709\u6548 JSON\u3002';
         return;
       }
       jsonStagingSegments.push(raw);
