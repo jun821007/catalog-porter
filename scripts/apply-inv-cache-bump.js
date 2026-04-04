@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const BATCH_VER = 'batch5';
+const BATCH_VER = 'batch6';
 
 function patch(rel, replacements) {
   const p = path.join(root, rel);
