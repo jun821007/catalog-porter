@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>&#25105;&#30340;&#24235;&#23384;</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=5" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
     header { background: #ffffff; border-bottom-color: #e2e8f0 !important; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
@@ -20,7 +20,28 @@
     #btnAddCategory { background: #fde047 !important; color: #1c1917 !important; border: 2px solid #ca8a04 !important; font-weight: 700; box-shadow: 0 1px 3px rgba(202,138,4,.35); }
     #btnAddCategory:hover { background: #facc15 !important; color: #0f172a !important; border-color: #a16207 !important; }
     #btnAddCategory:focus-visible { outline: 3px solid #eab308; outline-offset: 2px; }
-    #btnShare, #btnBatchDel, #btnBatchCat, #btnBatchSyncDesc { color: #fff !important; }
+    #btnShare, #btnBatchDel { color: #fff !important; }
+    /* styles.css 無 .bg-green-* / .bg-sky-*，批量鈕需明確底色 */
+    #btnBatchCat {
+      background-color: #16a34a !important;
+      color: #fff !important;
+      border: 1px solid #15803d !important;
+    }
+    #btnBatchCat:hover:not(:disabled) { background-color: #22c55e !important; }
+    #btnBatchSyncDesc {
+      background-color: #0ea5e9 !important;
+      color: #fff !important;
+      border: 1px solid #0284c7 !important;
+    }
+    #btnBatchSyncDesc:hover:not(:disabled) { background-color: #38bdf8 !important; }
+    #btnBatchCat:disabled,
+    #btnBatchSyncDesc:disabled { opacity: 0.55; cursor: not-allowed; }
+    #batchCatConfirm {
+      background-color: #16a34a !important;
+      color: #fff !important;
+      border: 1px solid #15803d !important;
+    }
+    #batchCatConfirm:hover:not(:disabled) { background-color: #22c55e !important; }
     #btnSelectAll, #btnSelectNone { background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1; padding: 0.35rem 0.6rem; border-radius: .5rem; text-decoration: none !important; }
     #btnSelectAll:hover, #btnSelectNone:hover { background: #f8fafc !important; color: #0f172a !important; }
     .bg-slate-900 { background: #ffffff !important; }
@@ -80,12 +101,12 @@
     #btnBatchSyncDesc[data-on="1"] { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.65); }
   </style>
 </head>
-<body class="text-slate-100 min-h-screen" data-inv-ui="inv-batch-v4">
+<body class="text-slate-100 min-h-screen" data-inv-ui="inv-batch-v5">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">我的庫存<span id="countBadge" class="text-slate-400 font-normal ml-2 text-base"></span></h1>
     <nav class="flex gap-3 text-sm">
       <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
-      <a href="/inventory?v=batch4" class="text-amber-300 font-medium">我的庫存</a>
+      <a href="/inventory?v=batch5" class="text-amber-300 font-medium">我的庫存</a>
       <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
@@ -427,7 +448,7 @@
         let j = await r.json();
         items = j.items || [];
         const debugEl = document.getElementById("debugOut");
-        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok + "\nUI: inv-batch-v4（儲存後自動關閉批量同步描述模式）";
+        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok + "\nUI: inv-batch-v5（儲存後自動關閉批量同步描述模式）";
         if (!r.ok) {
           grid.innerHTML = '<p class="col-span-full text-red-400">API 錯誤 ' + r.status + ': ' + (j.error || r.statusText) + '</p>';
           document.getElementById("countBadge").textContent = "";

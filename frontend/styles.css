@@ -22,6 +22,10 @@
   --red-500: #ef4444;
   --red-600: #dc2626;
   --slate-600: #475569;
+  --green-600: #16a34a;
+  --green-500: #22c55e;
+  --sky-500: #0ea5e9;
+  --sky-400: #38bdf8;
 }
 
 * { box-sizing: border-box; }
@@ -41,6 +45,10 @@ img { max-width: 100%; height: auto; display: block; }
 .bg-violet-500 { background-color: var(--violet-500); }
 .bg-red-600 { background-color: var(--red-600); }
 .bg-red-500 { background-color: var(--red-500); }
+.bg-green-600 { background-color: var(--green-600); }
+.bg-green-500 { background-color: var(--green-500); }
+.bg-sky-500 { background-color: var(--sky-500); }
+.bg-sky-400 { background-color: var(--sky-400); }
 .bg-black\/60 { background-color: rgba(0,0,0,.6); }
 
 .text-slate-100 { color: var(--slate-100); }
@@ -146,6 +154,8 @@ button.hover\:bg-amber-500:hover { background-color: var(--amber-500); }
 button.hover\:bg-emerald-500:hover { background-color: var(--emerald-500); }
 button.hover\:bg-violet-500:hover { background-color: var(--violet-500); }
 button.hover\:bg-red-500:hover { background-color: var(--red-500); }
+button.hover\:bg-green-500:hover { background-color: var(--green-500); }
+button.hover\:bg-sky-400:hover { background-color: var(--sky-400); }
 button.text-red-400.hover\:text-red-300:hover { color: var(--red-300); }
 
 @media (min-width: 640px) {

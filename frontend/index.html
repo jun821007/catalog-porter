@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>抓取入庫</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=5" />
   <style>
     body { background: #f3f6fb !important; color: #0f172a !important; }
     header { background: #ffffff !important; border-bottom-color: #e2e8f0 !important; box-shadow: 0 1px 0 rgba(15,23,42,.04); }
@@ -69,7 +69,7 @@
     <h1 class="text-xl font-semibold text-amber-400">Catalog Porter</h1>
     <nav class="flex gap-3 text-sm">
       <a href="/" class="text-amber-300 font-medium">抓取入庫</a>
-      <a href="/inventory?v=batch4" class="text-slate-400 hover:text-white">我的庫存</a>
+      <a href="/inventory?v=batch5" class="text-slate-400 hover:text-white">我的庫存</a>
       <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
@@ -102,7 +102,7 @@
     <div class="flex gap-3 mb-4 flex-wrap items-center">
       <span class="text-sm text-slate-500">勾選要入庫的項目後點擊按鈕</span>
       <button id="btnImport" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-medium disabled:opacity-40 text-white" disabled>入庫已選（<span id="selCount">0</span> 項）</button>
-      <a id="linkToInventory" href="/inventory?v=batch4" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
+      <a id="linkToInventory" href="/inventory?v=batch5" class="hidden bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium text-white no-underline">前往我的庫存</a>
       <button id="btnAll" type="button" class="text-sm">全選</button>
       <button id="btnNone" type="button" class="text-sm">全不選</button>
     </div>
