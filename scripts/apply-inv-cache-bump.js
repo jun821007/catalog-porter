@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const BATCH_VER = 'batch2';
+const BATCH_VER = 'batch4';
 
 function patch(rel, replacements) {
   const p = path.join(root, rel);
@@ -85,4 +85,5 @@ if (!ss.includes("Expires: '0'")) {
 
 if (!any) console.log('Already up to date (bump: change BATCH_VER in this script).');
 else console.log('Done. Restart: npm start');
+
 

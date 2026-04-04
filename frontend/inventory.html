@@ -20,7 +20,7 @@
     #btnAddCategory { background: #fde047 !important; color: #1c1917 !important; border: 2px solid #ca8a04 !important; font-weight: 700; box-shadow: 0 1px 3px rgba(202,138,4,.35); }
     #btnAddCategory:hover { background: #facc15 !important; color: #0f172a !important; border-color: #a16207 !important; }
     #btnAddCategory:focus-visible { outline: 3px solid #eab308; outline-offset: 2px; }
-    #btnShare, #btnBatchDel, #btnBatchCat { color: #fff !important; }
+    #btnShare, #btnBatchDel, #btnBatchCat, #btnBatchSyncDesc { color: #fff !important; }
     #btnSelectAll, #btnSelectNone { background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1; padding: 0.35rem 0.6rem; border-radius: .5rem; text-decoration: none !important; }
     #btnSelectAll:hover, #btnSelectNone:hover { background: #f8fafc !important; color: #0f172a !important; }
     .bg-slate-900 { background: #ffffff !important; }
@@ -77,14 +77,15 @@
     #batchCatPanel { position: relative; z-index: 1; width: 100%; max-width: 22rem; background: #ffffff !important; border: 1px solid #cbd5e1 !important; border-radius: 0.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); padding: 1rem; }
     #batchCatPanel label, #batchCatPanel .text-slate-500 { color: #64748b !important; }
     #batchCatSelect { color: #0f172a !important; background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important; }
+    #btnBatchSyncDesc[data-on="1"] { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.65); }
   </style>
 </head>
-<body class="text-slate-100 min-h-screen" data-inv-ui="inv-batch-v1">
+<body class="text-slate-100 min-h-screen" data-inv-ui="inv-batch-v4">
   <header class="border-b border-slate-800 px-4 py-4 flex flex-wrap gap-4 items-center justify-between">
     <h1 class="text-xl font-semibold text-amber-400">我的庫存<span id="countBadge" class="text-slate-400 font-normal ml-2 text-base"></span></h1>
     <nav class="flex gap-3 text-sm">
       <a href="/" class="text-slate-400 hover:text-white">抓取入庫</a>
-      <a href="/inventory?v=batch2" class="text-amber-300 font-medium">我的庫存</a>
+      <a href="/inventory?v=batch4" class="text-amber-300 font-medium">我的庫存</a>
       <a href="/merchants" class="text-slate-400 hover:text-white">管理商家</a>
     </nav>
   </header>
@@ -103,13 +104,14 @@
       <button type="button" id="btnAddCategory" class="px-4 py-2 rounded-lg text-sm">新增分類</button>
       <button id="btnShare" class="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:grayscale" disabled>生成分享連結</button>
       <button id="btnBatchDel" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:grayscale" disabled>批量刪除</button>
-      <button id="btnBatchCat" class="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg font-medium ring-2 ring-teal-700/25 disabled:opacity-60" disabled title="需先勾選至少一筆庫存">批量設分類</button>
+      <button type="button" id="btnBatchCat" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-medium ring-2 ring-green-700/30 disabled:opacity-60" disabled title="需先勾選至少一筆庫存">批量設分類</button>
+      <button type="button" id="btnBatchSyncDesc" class="bg-sky-500 hover:bg-sky-400 px-4 py-2 rounded-lg font-medium ring-2 ring-sky-600/20 disabled:opacity-60" disabled title="先勾選項目後可開啟；開啟後在編輯描述視窗內才會出現同步選項">批量同步描述</button>
       <button id="btnSelectAll" class="text-slate-400 hover:text-white text-sm underline">全選</button>
       <button id="btnSelectNone" class="text-slate-400 hover:text-white text-sm underline">取消全選</button>
       <button type="button" id="shareLinkBtn" class="hidden text-left px-3 py-2 rounded-lg bg-violet-100 text-violet-900 text-sm font-medium border border-violet-200 hover:bg-violet-200 max-w-full"></button>
     </div>
-    <p class="text-xs text-slate-600 mb-3 leading-relaxed border-l-4 border-teal-500 pl-2 py-0.5 bg-teal-50/80 rounded-r">
-      <strong>批量功能：</strong>先勾選卡片右側方塊 → 按綠色「<strong>批量設分類</strong>」一次改分類。編輯描述時可勾選「將相同描述套用到目前已勾選的其他項目」同步內文（不改其他項的分類）。
+    <p class="text-xs text-slate-600 mb-3 leading-relaxed border-l-4 border-slate-400 pl-2 py-0.5 bg-slate-100/90 rounded-r">
+      <strong>批量功能：</strong>先勾選卡片右側方塊 → <span class="text-green-700 font-medium">綠色「批量設分類」</span>一次改分類；<span class="text-sky-700 font-medium">天藍「批量同步描述」</span>開啟後，再點「修改」進編輯視窗才會出現「同步到其他勾選項」選項（僅改描述、不改那些項的分類）。再點一次天藍鈕可關閉同步模式。
     </p>
     <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
     <details class="mt-6 text-xs text-slate-500" id="debugPanel">
@@ -136,10 +138,12 @@
       <label for="descEditCat" class="block text-xs text-slate-500 mb-1">分類</label>
       <select id="descEditCat" class="w-full mb-2 bg-white border border-slate-300 rounded px-2 py-1.5 text-slate-800 text-sm"></select>
       <p class="text-xs text-slate-500 mb-2 leading-relaxed">儲存時，描述會經伺服器與入庫相同規則處理：簡轉繁、移除文案中獨立的 p400、P411 等批發價標記。</p>
-      <label class="flex items-start gap-2 mb-2 text-xs text-slate-700 cursor-pointer">
-        <input type="checkbox" id="descEditSyncToChecked" class="mt-0.5 shrink-0" />
-        <span>儲存後，將<strong>相同描述文字</strong>套用到下方列表<strong>目前已勾選</strong>的其他項目（僅改描述，不改那些項目的分類）。請確認勾選的都是同一商品或你要統一的文字。</span>
-      </label>
+      <div id="descEditSyncRow" class="hidden mb-2 rounded border border-sky-200 bg-sky-50/90 px-2 py-2">
+        <label class="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="descEditSyncToChecked" class="mt-0.5 shrink-0" />
+          <span><strong>批量同步（已開啟模式）：</strong>儲存後將<strong>相同描述文字</strong>套用到列表中<strong>目前已勾選</strong>的其他項目（僅改描述，不改那些項目的分類）。請確認勾選項為同一商品或你要統一的文字。</span>
+        </label>
+      </div>
       <textarea id="descEditTa" class="w-full min-h-[220px] bg-white border border-slate-300 rounded p-2 text-slate-800 text-sm" autocomplete="off"></textarea>
       <div class="flex gap-2 mt-3 justify-end flex-shrink-0">
         <button type="button" id="descEditCancel" class="px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">&#21462;&#28040;</button>
@@ -156,7 +160,7 @@
       <select id="batchCatSelect" class="w-full mb-3 rounded px-2 py-1.5 text-sm"></select>
       <div class="flex gap-2 justify-end">
         <button type="button" id="batchCatCancel" class="px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">取消</button>
-        <button type="button" id="batchCatConfirm" class="px-3 py-1.5 rounded bg-teal-600 text-white text-sm hover:bg-teal-500">套用至勾選項目</button>
+        <button type="button" id="batchCatConfirm" class="px-3 py-1.5 rounded bg-green-600 text-white text-sm hover:bg-green-500">套用至勾選項目</button>
       </div>
     </div>
   </div>
@@ -173,6 +177,7 @@
     let lightboxIdx = 0;
     let lightboxBaseDesc = "";
     let descEditId = null;
+    let batchSyncDescMode = false;
     const preloadCache = new Map();
     function esc(s) { return (s || "").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
     function trunc(s, n) { s = s || ""; return s.length <= n ? s : s.slice(0, n) + "..."; }
@@ -328,6 +333,8 @@
         ? String(it.category || "").trim()
         : (cardEl ? String(cardEl.getAttribute("data-category") || "").trim() : "");
       document.getElementById("descEditSyncToChecked").checked = false;
+      const syncRow = document.getElementById("descEditSyncRow");
+      if (syncRow) syncRow.classList.toggle("hidden", !batchSyncDescMode);
       await fillDescEditCategorySelect(catForSelect);
       document.getElementById("descEditModal").classList.add("show");
       requestAnimationFrame(() => {
@@ -350,7 +357,7 @@
       if (descEditId == null) return;
       const description = document.getElementById("descEditTa").value;
       const category = document.getElementById("descEditCat").value;
-      const syncToChecked = document.getElementById("descEditSyncToChecked").checked;
+      const syncToChecked = batchSyncDescMode && document.getElementById("descEditSyncToChecked").checked;
       const btn = document.getElementById("descEditSave");
       btn.disabled = true;
       try {
@@ -388,6 +395,12 @@
           if (fail) alert("有 " + fail + " 項描述同步失敗");
         }
         document.getElementById("descEditSyncToChecked").checked = false;
+        if (batchSyncDescMode) {
+          batchSyncDescMode = false;
+          const syncRowEl = document.getElementById("descEditSyncRow");
+          if (syncRowEl) syncRowEl.classList.add("hidden");
+          updateShareBtn();
+        }
         closeDescEditModal();
         load();
       } catch (e) {
@@ -414,7 +427,7 @@
         let j = await r.json();
         items = j.items || [];
         const debugEl = document.getElementById("debugOut");
-        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok + "\nUI: inv-batch-v1（有綠色批量設分類鈕；編輯視窗內可同步描述）";
+        if (debugEl) debugEl.textContent = "url: " + url + "\nstatus: " + r.status + "\nitems: " + (j.items ? j.items.length : "?") + "\nok: " + !!j.ok + "\nUI: inv-batch-v4（儲存後自動關閉批量同步描述模式）";
         if (!r.ok) {
           grid.innerHTML = '<p class="col-span-full text-red-400">API 錯誤 ' + r.status + ': ' + (j.error || r.statusText) + '</p>';
           document.getElementById("countBadge").textContent = "";
@@ -472,11 +485,23 @@
       });
       updateShareBtn();
     }
+    function refreshBatchSyncDescBtn() {
+      const b = document.getElementById("btnBatchSyncDesc");
+      if (!b) return;
+      b.dataset.on = batchSyncDescMode ? "1" : "";
+      b.setAttribute("aria-pressed", batchSyncDescMode ? "true" : "false");
+      b.title = batchSyncDescMode
+        ? "同步模式已開啟：編輯並儲存時可勾選同步到其他勾選項。再點一次可關閉。"
+        : "先勾選項目後可開啟；開啟後在編輯描述視窗內才會出現同步選項";
+    }
     function updateShareBtn() {
       const n = [...document.querySelectorAll(".pick:checked")].length;
       document.getElementById("btnShare").disabled = n === 0;
       document.getElementById("btnBatchDel").disabled = n === 0;
       document.getElementById("btnBatchCat").disabled = n === 0;
+      const syncB = document.getElementById("btnBatchSyncDesc");
+      if (syncB) syncB.disabled = n === 0 && !batchSyncDescMode;
+      refreshBatchSyncDescBtn();
     }
     function closeBatchCatModal() {
       document.getElementById("batchCatModal").classList.remove("show");
@@ -566,6 +591,13 @@
       load();
     };
     document.getElementById("btnBatchCat").onclick = () => { void openBatchCatModal(); };
+    document.getElementById("btnBatchSyncDesc").onclick = () => {
+      batchSyncDescMode = !batchSyncDescMode;
+      if (!batchSyncDescMode) document.getElementById("descEditSyncToChecked").checked = false;
+      const row = document.getElementById("descEditSyncRow");
+      if (row) row.classList.toggle("hidden", !batchSyncDescMode);
+      updateShareBtn();
+    };
     document.getElementById("batchCatCancel").onclick = closeBatchCatModal;
     document.getElementById("batchCatBackdrop").onclick = closeBatchCatModal;
     document.getElementById("batchCatConfirm").onclick = async () => {
